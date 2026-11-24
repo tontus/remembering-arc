@@ -1,7 +1,8 @@
 import type { BrowserPort, MessagePort } from '../browser/port';
 import { createLibrary, type Library } from '../library/library';
 import { startModes } from './modes';
-import { type CoreMessage, SIDEBAR_PORT_NAME } from './sidebar-protocol';
+import { runSidebarCommand } from './sidebar-commands';
+import { type CoreMessage, SIDEBAR_PORT_NAME, type SidebarMessage } from './sidebar-protocol';
 
 /**
  * Starts the core in the background service worker. Chrome stops the worker whenever it's
@@ -22,7 +23,10 @@ export function startCore(browser: BrowserPort): void {
   startModes(browser);
 }
 
-/** Sends a connected sidebar its view now and after every change, until it disconnects. */
+/**
+ * Sends a connected sidebar its view now and after every change, until it disconnects, and
+ * runs the commands it sends.
+ */
 function serveSidebar(port: MessagePort, library: Library): void {
   const send = (message: CoreMessage) => {
     try {
@@ -36,4 +40,9 @@ function serveSidebar(port: MessagePort, library: Library): void {
     (error) => send({ type: 'error', message: error instanceof Error ? error.message : String(error) }),
   );
   port.onDisconnect.addListener(unsubscribe);
+  port.onMessage.addListener((message) => {
+    const { type, requestId, command } = message as SidebarMessage;
+    if (type !== 'command') return;
+    void runSidebarCommand(library, command).then((outcome) => send({ type: 'commandResult', requestId, outcome }));
+  });
 }

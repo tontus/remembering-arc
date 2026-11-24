@@ -1,14 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { Favorite, Folder, PinnedTab, Space, SpaceItem } from '../library/structure';
-import { useBrowser, useMessages, useSidebarState } from './browser-context';
+import { type RunCommand, useBrowser, useCore, useMessages } from './browser-context';
 import { faviconUrl } from './favicon';
 import { Settings } from './Settings';
+import { NewSpaceForm, SpaceEditor, spaceColorStyle } from './space-forms';
+import { SpaceSwitcher } from './SpaceSwitcher';
 
 export function Sidebar() {
   const t = useMessages();
-  const state = useSidebarState();
+  const { state, run } = useCore();
   // The Active Space lives only in this sidebar for now, so it resets when the panel reopens.
   const [activeSpaceId, setActiveSpaceId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  /** A control in the Space switcher to focus once it's drawn, after the new Space form closes. */
+  const [focusTarget, setFocusTarget] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (focusTarget === null) return;
+    document.querySelector<HTMLElement>(focusTarget)?.focus();
+    setFocusTarget(null);
+  }, [focusTarget, state]);
 
   if (state.status === 'loading') return <p className="status">{t('loading')}</p>;
   if (state.status === 'error') {
@@ -25,8 +36,36 @@ export function Sidebar() {
     <div className="sidebar">
       {!view.syncing && <NotSyncingNotice />}
       <FavoritesRow favorites={view.favorites} />
-      <main className="space">{activeSpace && <SpaceContents space={activeSpace} />}</main>
-      <SpaceSwitcher spaces={view.spaces} activeSpaceId={activeSpace?.id} onSelect={setActiveSpaceId} />
+      <main className="space">
+        {creating ? (
+          <NewSpaceForm
+            spaces={view.spaces}
+            run={run}
+            onCreated={(spaceId) => {
+              setActiveSpaceId(spaceId);
+              setCreating(false);
+              setFocusTarget(`[data-space-id="${CSS.escape(spaceId)}"]`);
+            }}
+            onCancel={() => {
+              setCreating(false);
+              setFocusTarget('[data-new-space]');
+            }}
+          />
+        ) : (
+          activeSpace && <SpaceContents key={activeSpace.id} space={activeSpace} run={run} />
+        )}
+      </main>
+      <SpaceSwitcher
+        spaces={view.spaces}
+        activeSpaceId={activeSpace?.id}
+        creating={creating}
+        run={run}
+        onSelect={(spaceId) => {
+          setActiveSpaceId(spaceId);
+          setCreating(false);
+        }}
+        onCreate={() => setCreating(true)}
+      />
       <Settings />
     </div>
   );
@@ -60,11 +99,42 @@ function FavoritesRow({ favorites }: { favorites: Favorite[] }) {
   );
 }
 
-function SpaceContents({ space }: { space: Space }) {
+function SpaceContents({ space, run }: { space: Space; run: RunCommand }) {
   const t = useMessages();
+  const [editing, setEditing] = useState(false);
+  const editorId = useId();
+  const editButton = useRef<HTMLButtonElement>(null);
   return (
     <>
-      <h1 className="space-name">{space.name}</h1>
+      <header className="space-header" style={spaceColorStyle(space.color)}>
+        <span className="color-dot" aria-hidden="true" />
+        <h1 className="space-name">{space.name}</h1>
+        <button
+          ref={editButton}
+          type="button"
+          className="icon-button"
+          title={t('editSpace')}
+          aria-label={t('editSpace')}
+          aria-expanded={editing}
+          aria-controls={editing ? editorId : undefined}
+          onClick={() => setEditing(!editing)}
+        >
+          <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden="true">
+            <path d="M10.8 2.7l2.5 2.5-7.6 7.6-3.2.7.7-3.2z" />
+          </svg>
+        </button>
+      </header>
+      {editing && (
+        <SpaceEditor
+          id={editorId}
+          space={space}
+          run={run}
+          onDone={() => {
+            setEditing(false);
+            editButton.current?.focus();
+          }}
+        />
+      )}
       {space.items.length === 0 ? (
         <p className="empty">{t('emptySpace')}</p>
       ) : (
@@ -109,37 +179,5 @@ function FolderRow({ folder }: { folder: Folder }) {
       </div>
       {folder.items.length > 0 && <SpaceItems items={folder.items} />}
     </li>
-  );
-}
-
-function SpaceSwitcher({
-  spaces,
-  activeSpaceId,
-  onSelect,
-}: {
-  spaces: Space[];
-  activeSpaceId: string | undefined;
-  onSelect: (spaceId: string) => void;
-}) {
-  const t = useMessages();
-  return (
-    <nav className="space-switcher" aria-label={t('spaceSwitcherLabel')}>
-      <ul>
-        {spaces.map((space) => (
-          <li key={space.id}>
-            <button
-              type="button"
-              className="space-icon"
-              title={space.name}
-              aria-label={space.name}
-              aria-pressed={space.id === activeSpaceId}
-              onClick={() => onSelect(space.id)}
-            >
-              {space.icon ?? <span className="initial">{Array.from(space.name.trim())[0] ?? ''}</span>}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </nav>
   );
 }

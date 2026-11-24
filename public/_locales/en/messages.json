@@ -70,5 +70,167 @@
   "autoHideFrameTitle": {
     "message": "Sidebar",
     "description": "Accessible title of the frame that shows the sidebar over a web page in Auto-hide mode."
+  },
+  "newSpace": {
+    "message": "New Space",
+    "description": "Label of the button that starts creating a Space, and heading of the form that creates one."
+  },
+  "editSpace": {
+    "message": "Edit Space",
+    "description": "Label of the button that shows the form for changing the Space's name, icon and color."
+  },
+  "spaceNameField": {
+    "message": "Name",
+    "description": "Label of the field for a Space's name."
+  },
+  "spaceIconField": {
+    "message": "Icon",
+    "description": "Label of the choice of emoji shown at the start of a Space's name."
+  },
+  "noIcon": {
+    "message": "No icon",
+    "description": "Option for a Space with no emoji at the start of its name."
+  },
+  "otherEmojiField": {
+    "message": "Other emoji",
+    "description": "Label of a small field where the user types or pastes any emoji as a Space's icon."
+  },
+  "spaceColorField": {
+    "message": "Color",
+    "description": "Label of the choice of a Space's color, one of Chrome's tab group colors."
+  },
+  "createSpace": {
+    "message": "Create Space",
+    "description": "Button that creates the Space described in the form."
+  },
+  "cancel": {
+    "message": "Cancel",
+    "description": "Button that closes a form without saving it."
+  },
+  "doneEditing": {
+    "message": "Done",
+    "description": "Button that closes the form for changing a Space. Changes are already saved."
+  },
+  "spaceNameTaken": {
+    "message": "Another Space is already called “$NAME$”.",
+    "description": "Shown when the user tries to give a Space a name that another Space already has. Space names must be unique.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "💼 Work"
+      }
+    }
+  },
+  "spaceNameEmpty": {
+    "message": "Give the Space a name.",
+    "description": "Shown when the user tries to save a Space with an empty name."
+  },
+  "spaceIconInvalid": {
+    "message": "Use a single emoji as the icon.",
+    "description": "Shown when the user types something other than one emoji as a Space's icon."
+  },
+  "spaceNotFound": {
+    "message": "This Space no longer exists. It may have been deleted on another device.",
+    "description": "Shown when the user changes a Space that was deleted in the meantime."
+  },
+  "commandFailed": {
+    "message": "The change couldn't be saved. Try again.",
+    "description": "Shown when a change to a Space fails unexpectedly."
+  },
+  "colorGrey": {
+    "message": "Grey",
+    "description": "Name of one of Chrome's nine tab group colors, offered as a Space's color. Use the same word Chrome uses for this tab group color."
+  },
+  "colorBlue": {
+    "message": "Blue",
+    "description": "Name of one of Chrome's nine tab group colors, offered as a Space's color. Use the same word Chrome uses for this tab group color."
+  },
+  "colorRed": {
+    "message": "Red",
+    "description": "Name of one of Chrome's nine tab group colors, offered as a Space's color. Use the same word Chrome uses for this tab group color."
+  },
+  "colorYellow": {
+    "message": "Yellow",
+    "description": "Name of one of Chrome's nine tab group colors, offered as a Space's color. Use the same word Chrome uses for this tab group color."
+  },
+  "colorGreen": {
+    "message": "Green",
+    "description": "Name of one of Chrome's nine tab group colors, offered as a Space's color. Use the same word Chrome uses for this tab group color."
+  },
+  "colorPink": {
+    "message": "Pink",
+    "description": "Name of one of Chrome's nine tab group colors, offered as a Space's color. Use the same word Chrome uses for this tab group color."
+  },
+  "colorPurple": {
+    "message": "Purple",
+    "description": "Name of one of Chrome's nine tab group colors, offered as a Space's color. Use the same word Chrome uses for this tab group color."
+  },
+  "colorCyan": {
+    "message": "Cyan",
+    "description": "Name of one of Chrome's nine tab group colors, offered as a Space's color. Use the same word Chrome uses for this tab group color."
+  },
+  "colorOrange": {
+    "message": "Orange",
+    "description": "Name of one of Chrome's nine tab group colors, offered as a Space's color. Use the same word Chrome uses for this tab group color."
+  },
+  "moveSpaceHint": {
+    "message": "Drag to move this Space. With the keyboard, hold Alt and press the Left or Right arrow key.",
+    "description": "Read by screen readers for each Space's icon at the bottom of the sidebar. Explains how to reorder Spaces."
+  },
+  "spacePickedUp": {
+    "message": "Picked up $NAME$.",
+    "description": "Announced to screen readers when the user starts dragging a Space's icon.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "💼 Work"
+      }
+    }
+  },
+  "spaceMovingOver": {
+    "message": "$NAME$ is over position $POSITION$ of $COUNT$.",
+    "description": "Announced to screen readers while the user drags a Space's icon over a new position among the Spaces.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "💼 Work"
+      },
+      "position": {
+        "content": "$2",
+        "example": "2"
+      },
+      "count": {
+        "content": "$3",
+        "example": "4"
+      }
+    }
+  },
+  "spaceMoved": {
+    "message": "$NAME$ moved to position $POSITION$ of $COUNT$.",
+    "description": "Announced to screen readers after the user moves a Space to a new position among the Spaces.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "💼 Work"
+      },
+      "position": {
+        "content": "$2",
+        "example": "2"
+      },
+      "count": {
+        "content": "$3",
+        "example": "4"
+      }
+    }
+  },
+  "spaceMoveCancelled": {
+    "message": "$NAME$ stayed where it was.",
+    "description": "Announced to screen readers when the user drops a Space's icon without moving it, or cancels the drag.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "💼 Work"
+      }
+    }
   }
 }

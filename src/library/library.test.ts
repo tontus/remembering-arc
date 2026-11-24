@@ -2,9 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { createFakeBrowser, type FakeBrowser } from '../browser/fake/fake-browser';
 import type { BookmarkTreeSpec } from '../browser/fake/fake-bookmarks';
 import { createLibrary, type Library, ROOT_FOLDER_NAME } from './library';
+import type { SpaceColor } from './space-color';
 import type { LibraryStructure } from './structure';
 
-const homeSpace = { id: expect.any(String), name: 'Home', icon: null, items: [] };
+const homeSpace = { id: expect.any(String), name: 'Home', icon: null, label: 'Home', color: 'grey', items: [] };
 
 function syncingOtherBookmarks(browser: FakeBrowser): string {
   return browser.bookmarks.permanentFolderId('other', { syncing: true });
@@ -49,7 +50,9 @@ describe('finding the root folder', () => {
 
     const structure = await createLibrary(browser).read();
 
-    expect(structure.spaces).toEqual([{ id: expect.any(String), name: '💼 Work', icon: '💼', items: [] }]);
+    expect(structure.spaces).toEqual([
+      { id: expect.any(String), name: '💼 Work', icon: '💼', label: 'Work', color: 'grey', items: [] },
+    ]);
     expect(browser.bookmarks.shape(other)).toEqual(before);
   });
 
@@ -166,6 +169,8 @@ describe('reading the tree', () => {
           id,
           name: '🏠 Personal',
           icon: '🏠',
+          label: 'Personal',
+          color: 'grey',
           items: [
             { kind: 'pinnedTab', id, title: 'Bank', pinnedUrl: 'https://bank.example.com/' },
             {
@@ -186,7 +191,7 @@ describe('reading the tree', () => {
             { kind: 'pinnedTab', id, title: 'News', pinnedUrl: 'https://news.example.com/' },
           ],
         },
-        { id, name: 'Work', icon: null, items: [] },
+        { id, name: 'Work', icon: null, label: 'Work', color: 'grey', items: [] },
       ],
     });
   });
@@ -288,5 +293,320 @@ describe('reacting to bookmark changes', () => {
     await library.read();
 
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** Sets up a root holding `children`, plus a Library with a recorded subscription. */
+async function setUpLibrary(children: BookmarkTreeSpec[], colors: Record<string, string> = {}) {
+  const browser = createFakeBrowser();
+  const rootId = await addRoot(browser, syncingOtherBookmarks(browser), children);
+  await browser.storage.sync.set(colors);
+  const library = createLibrary(browser);
+  const recording = record(library);
+  await vi.waitFor(() => expect(recording.latest()).toBeDefined());
+  const spaceId = (name: string) => recording.latest()!.spaces.find((space) => space.name === name)!.id;
+  /** Expects a command to be turned down, and nothing to be written. */
+  const expectRefused = async (command: Promise<unknown>, refusal: { reason: string; spaceName?: string }) => {
+    const tree = browser.bookmarks.shape(rootId);
+    const stored = await browser.storage.sync.get();
+    await expect(command).rejects.toMatchObject(refusal);
+    expect(browser.bookmarks.shape(rootId)).toEqual(tree);
+    expect(await browser.storage.sync.get()).toEqual(stored);
+  };
+  return { browser, rootId, library, spaceId, expectRefused, ...recording };
+}
+
+const mail = { title: 'Mail', url: 'https://mail.example.com/' };
+const calendar = { title: 'Calendar', url: 'https://calendar.example.com/' };
+
+describe('Space colors', () => {
+  it('shows each Space’s color from synced storage, and the default color where none is stored', async () => {
+    const { latest } = await setUpLibrary(
+      [
+        { title: '💼 Work', children: [] },
+        { title: '🏠 Personal', children: [] },
+      ],
+      { 'spaceColor:💼 Work': 'blue' },
+    );
+
+    expect(latest()?.spaces.map((space) => space.color)).toEqual(['blue', 'grey']);
+  });
+
+  it('follows a color changed on another device', async () => {
+    const { browser, latest } = await setUpLibrary([{ title: '💼 Work', children: [] }], { 'spaceColor:💼 Work': 'blue' });
+
+    await browser.storage.sync.set({ 'spaceColor:💼 Work': 'green' });
+
+    await vi.waitFor(() => expect(latest()?.spaces[0]?.color).toBe('green'));
+  });
+
+  it('shows the default color for a stored value that isn’t a tab group color', async () => {
+    const { latest } = await setUpLibrary([{ title: '💼 Work', children: [] }], { 'spaceColor:💼 Work': 'black' });
+
+    expect(latest()?.spaces[0]?.color).toBe('grey');
+  });
+
+  it('shows the default color for a Space renamed outside the extension', async () => {
+    const { browser, spaceId, latest } = await setUpLibrary([{ title: '💼 Work', children: [] }], {
+      'spaceColor:💼 Work': 'blue',
+    });
+
+    // As in Chrome's bookmark manager.
+    await browser.bookmarks.update(spaceId('💼 Work'), { title: '💼 Office' });
+
+    await vi.waitFor(() => expect(latest()?.spaces[0]).toMatchObject({ name: '💼 Office', color: 'grey' }));
+  });
+});
+
+describe('creating a Space', () => {
+  const children = [mail, { title: '🏠 Home', children: [] }];
+
+  it('adds a folder named with the icon and name after the other Spaces, and stores its color', async () => {
+    const { browser, rootId, library, latest } = await setUpLibrary(children);
+
+    const spaceId = await library.createSpace({ icon: '🚀', label: 'Launch', color: 'blue' });
+
+    expect(browser.bookmarks.shape(rootId)).toEqual([
+      mail,
+      { title: '🏠 Home', children: [] },
+      { title: '🚀 Launch', children: [] },
+    ]);
+    expect(await browser.storage.sync.get()).toEqual({ 'spaceColor:🚀 Launch': 'blue' });
+    await vi.waitFor(() =>
+      expect(latest()?.spaces.at(-1)).toEqual({
+        id: spaceId,
+        name: '🚀 Launch',
+        icon: '🚀',
+        label: 'Launch',
+        color: 'blue',
+        items: [],
+      }),
+    );
+  });
+
+  it('names a Space without an icon with its trimmed name alone', async () => {
+    const { browser, rootId, library } = await setUpLibrary(children);
+
+    await library.createSpace({ icon: null, label: '  Reading list ', color: 'grey' });
+
+    expect(browser.bookmarks.shape(rootId).at(-1)).toEqual({ title: 'Reading list', children: [] });
+    expect(await browser.storage.sync.get()).toEqual({ 'spaceColor:Reading list': 'grey' });
+  });
+
+  it('turns down a name another Space already has', async () => {
+    const { library, expectRefused } = await setUpLibrary(children);
+
+    await expectRefused(library.createSpace({ icon: '🏠', label: 'Home', color: 'red' }), {
+      reason: 'duplicate-name',
+      spaceName: '🏠 Home',
+    });
+  });
+
+  it('turns down an empty name', async () => {
+    const { library, expectRefused } = await setUpLibrary(children);
+
+    await expectRefused(library.createSpace({ icon: '🚀', label: '   ', color: 'blue' }), { reason: 'empty-name' });
+  });
+
+  it.each(['A', '🚀🚀', '🚀 Launch'])('turns down the icon %j, which isn’t one emoji', async (icon) => {
+    const { library, expectRefused } = await setUpLibrary(children);
+
+    await expectRefused(library.createSpace({ icon, label: 'Launch', color: 'blue' }), { reason: 'invalid-icon' });
+  });
+
+  it('turns down a color that isn’t a tab group color', async () => {
+    const { library, expectRefused } = await setUpLibrary(children);
+
+    await expectRefused(library.createSpace({ icon: '🚀', label: 'Launch', color: 'black' as SpaceColor }), {
+      reason: 'invalid-color',
+    });
+  });
+
+  it('creates one Space when two with the same name are created at once', async () => {
+    const { browser, rootId, library } = await setUpLibrary(children);
+
+    const results = await Promise.allSettled([
+      library.createSpace({ icon: '🚀', label: 'Launch', color: 'blue' }),
+      library.createSpace({ icon: '🚀', label: 'Launch', color: 'red' }),
+    ]);
+
+    expect(results.map((result) => result.status)).toEqual(['fulfilled', 'rejected']);
+    expect(browser.bookmarks.shape(rootId).map((node) => node.title)).toEqual(['Mail', '🏠 Home', '🚀 Launch']);
+    expect(await browser.storage.sync.get()).toEqual({ 'spaceColor:🚀 Launch': 'blue' });
+  });
+});
+
+describe('renaming a Space', () => {
+  const children = [
+    { title: '💼 Work', children: [{ title: 'Docs', url: 'https://docs.example.com/' }] },
+    { title: '🏠 Personal', children: [] },
+  ];
+
+  it('changes the name after the icon and takes the color to the new name', async () => {
+    const { browser, rootId, library, spaceId, latest } = await setUpLibrary(children, { 'spaceColor:💼 Work': 'blue' });
+
+    await library.renameSpace(spaceId('💼 Work'), ' Office ');
+
+    expect(browser.bookmarks.shape(rootId)).toEqual([
+      { title: '💼 Office', children: [{ title: 'Docs', url: 'https://docs.example.com/' }] },
+      { title: '🏠 Personal', children: [] },
+    ]);
+    expect(await browser.storage.sync.get()).toEqual({ 'spaceColor:💼 Office': 'blue' });
+    await vi.waitFor(() =>
+      expect(latest()?.spaces[0]).toMatchObject({ name: '💼 Office', label: 'Office', color: 'blue' }),
+    );
+  });
+
+  it('keeps the default color, even where an old Space left a color under the new name', async () => {
+    const { browser, library, spaceId, latest } = await setUpLibrary(children, { 'spaceColor:💼 Office': 'red' });
+
+    await library.renameSpace(spaceId('💼 Work'), 'Office');
+
+    expect(await browser.storage.sync.get()).toEqual({});
+    await vi.waitFor(() => expect(latest()?.spaces[0]).toMatchObject({ name: '💼 Office', color: 'grey' }));
+  });
+
+  it('turns down a name another Space already has', async () => {
+    const { library, spaceId, expectRefused } = await setUpLibrary([
+      { title: '💼 Work', children: [] },
+      { title: '💼 Office', children: [] },
+    ]);
+
+    await expectRefused(library.renameSpace(spaceId('💼 Work'), 'Office'), {
+      reason: 'duplicate-name',
+      spaceName: '💼 Office',
+    });
+  });
+
+  it('turns down an empty name', async () => {
+    const { library, spaceId, expectRefused } = await setUpLibrary(children, { 'spaceColor:💼 Work': 'blue' });
+
+    await expectRefused(library.renameSpace(spaceId('💼 Work'), ''), { reason: 'empty-name' });
+  });
+
+  it('changes nothing when the name stays the same', async () => {
+    const { browser, rootId, library, spaceId } = await setUpLibrary(children, { 'spaceColor:💼 Work': 'blue' });
+
+    await library.renameSpace(spaceId('💼 Work'), 'Work');
+
+    expect(browser.bookmarks.shape(rootId)[0]?.title).toBe('💼 Work');
+    expect(await browser.storage.sync.get()).toEqual({ 'spaceColor:💼 Work': 'blue' });
+  });
+
+  it('reports a Space that’s gone, for example deleted on another device', async () => {
+    const { browser, library, spaceId } = await setUpLibrary(children);
+    const workId = spaceId('💼 Work');
+    await browser.bookmarks.removeTree(workId);
+
+    await expect(library.renameSpace(workId, 'Office')).rejects.toMatchObject({ reason: 'space-not-found' });
+  });
+});
+
+describe('changing a Space’s icon', () => {
+  it('replaces the emoji the name starts with, and takes the color to the new name', async () => {
+    const { browser, rootId, library, spaceId, latest } = await setUpLibrary([{ title: '💼 Work', children: [] }], {
+      'spaceColor:💼 Work': 'blue',
+    });
+
+    await library.setSpaceIcon(spaceId('💼 Work'), '👩🏽‍💻');
+
+    expect(browser.bookmarks.shape(rootId)).toEqual([{ title: '👩🏽‍💻 Work', children: [] }]);
+    expect(await browser.storage.sync.get()).toEqual({ 'spaceColor:👩🏽‍💻 Work': 'blue' });
+    await vi.waitFor(() => expect(latest()?.spaces[0]).toMatchObject({ icon: '👩🏽‍💻', label: 'Work', color: 'blue' }));
+  });
+
+  it('adds an icon to a Space that has none', async () => {
+    const { browser, rootId, library, spaceId } = await setUpLibrary([{ title: 'Reading', children: [] }]);
+
+    await library.setSpaceIcon(spaceId('Reading'), '📚');
+
+    expect(browser.bookmarks.shape(rootId)).toEqual([{ title: '📚 Reading', children: [] }]);
+  });
+
+  it('removes the icon', async () => {
+    const { browser, rootId, library, spaceId } = await setUpLibrary([{ title: '💼Work', children: [] }], {
+      'spaceColor:💼Work': 'red',
+    });
+
+    await library.setSpaceIcon(spaceId('💼Work'), null);
+
+    expect(browser.bookmarks.shape(rootId)).toEqual([{ title: 'Work', children: [] }]);
+    expect(await browser.storage.sync.get()).toEqual({ 'spaceColor:Work': 'red' });
+  });
+
+  it('turns down an icon that would give the Space another Space’s name', async () => {
+    const { library, spaceId, expectRefused } = await setUpLibrary([
+      { title: '💼 Work', children: [] },
+      { title: '🏠 Work', children: [] },
+    ]);
+
+    await expectRefused(library.setSpaceIcon(spaceId('💼 Work'), '🏠'), { reason: 'duplicate-name', spaceName: '🏠 Work' });
+  });
+
+  it('turns down an icon that isn’t one emoji', async () => {
+    const { library, spaceId, expectRefused } = await setUpLibrary([{ title: '💼 Work', children: [] }]);
+
+    await expectRefused(library.setSpaceIcon(spaceId('💼 Work'), 'W'), { reason: 'invalid-icon' });
+  });
+});
+
+describe('setting a Space’s color', () => {
+  it('stores the color in synced storage under the Space’s name', async () => {
+    const { browser, library, spaceId, latest } = await setUpLibrary([{ title: '💼 Work', children: [] }]);
+
+    await library.setSpaceColor(spaceId('💼 Work'), 'purple');
+
+    expect(await browser.storage.sync.get()).toEqual({ 'spaceColor:💼 Work': 'purple' });
+    await vi.waitFor(() => expect(latest()?.spaces[0]?.color).toBe('purple'));
+  });
+
+  it('turns down a color that isn’t a tab group color', async () => {
+    const { library, spaceId, expectRefused } = await setUpLibrary([{ title: '💼 Work', children: [] }]);
+
+    await expectRefused(library.setSpaceColor(spaceId('💼 Work'), 'black' as SpaceColor), { reason: 'invalid-color' });
+  });
+});
+
+describe('reordering Spaces', () => {
+  const titles = (browser: FakeBrowser, rootId: string) => browser.bookmarks.shape(rootId).map((node) => node.title);
+
+  it('moves a Space among the Spaces, leaving the Favorites in their order', async () => {
+    const { browser, rootId, library, spaceId, latest } = await setUpLibrary([
+      mail,
+      { title: 'A', children: [] },
+      { title: 'B', children: [] },
+      calendar,
+      { title: 'C', children: [] },
+    ]);
+
+    await library.moveSpace(spaceId('C'), 0);
+    expect(titles(browser, rootId)).toEqual(['Mail', 'C', 'A', 'B', 'Calendar']);
+
+    await library.moveSpace(spaceId('A'), 2);
+    expect(titles(browser, rootId)).toEqual(['Mail', 'C', 'B', 'Calendar', 'A']);
+
+    await library.moveSpace(spaceId('A'), 1);
+    expect(titles(browser, rootId)).toEqual(['Mail', 'C', 'A', 'B', 'Calendar']);
+    await vi.waitFor(() => expect(latest()?.spaces.map((space) => space.name)).toEqual(['C', 'A', 'B']));
+    expect(latest()?.favorites.map((favorite) => favorite.title)).toEqual(['Mail', 'Calendar']);
+  });
+
+  it('changes nothing when a Space is dropped where it already is', async () => {
+    const { browser, rootId, library, spaceId } = await setUpLibrary([{ title: 'A', children: [] }, mail, { title: 'B', children: [] }]);
+
+    await library.moveSpace(spaceId('A'), 0);
+
+    expect(titles(browser, rootId)).toEqual(['A', 'Mail', 'B']);
+  });
+
+  it('moves a Space given a position past the end to the end', async () => {
+    const { browser, rootId, library, spaceId } = await setUpLibrary([
+      { title: 'A', children: [] },
+      { title: 'B', children: [] },
+    ]);
+
+    await library.moveSpace(spaceId('A'), 99);
+
+    expect(titles(browser, rootId)).toEqual(['B', 'A']);
   });
 });
