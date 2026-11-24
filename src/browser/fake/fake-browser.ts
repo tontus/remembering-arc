@@ -5,7 +5,8 @@ import { FakePermissions } from './fake-permissions';
 import { FakeRuntime } from './fake-runtime';
 import { FakeScripting } from './fake-scripting';
 import { FakeStorageArea } from './fake-storage';
-import { FakeCommands, FakeTabs, FakeWindows } from './fake-tabs';
+import { FakeTabStrip } from './fake-tab-strip';
+import { FakeCommands, FakeTabGroups, FakeTabs, FakeWindows } from './fake-tabs';
 import { FakeUserGesture } from './fake-user-gesture';
 
 /** The manifest's `optional_host_permissions`. */
@@ -23,6 +24,7 @@ export interface FakeBrowser extends BrowserPort {
   i18n: FakeI18n;
   sidePanel: FakeSidePanel;
   tabs: FakeTabs;
+  tabGroups: FakeTabGroups;
   windows: FakeWindows;
   commands: FakeCommands;
   permissions: FakePermissions;
@@ -41,7 +43,9 @@ export interface FakeBrowser extends BrowserPort {
 export function createFakeBrowser({ bookmarkSync = 'account' }: FakeBrowserOptions = {}): FakeBrowser {
   const gesture = new FakeUserGesture();
   const permissions = new FakePermissions(gesture, OPTIONAL_ORIGINS);
-  const tabs: FakeTabs = new FakeTabs(permissions, (tab) => scripting.loadPage(tab));
+  const strip = new FakeTabStrip();
+  const windows = new FakeWindows(strip);
+  const tabs: FakeTabs = new FakeTabs(strip, windows, (tab) => scripting.loadPage(tab));
   const scripting = new FakeScripting(tabs, permissions);
   return {
     bookmarks: new FakeBookmarks(bookmarkSync),
@@ -50,7 +54,8 @@ export function createFakeBrowser({ bookmarkSync = 'account' }: FakeBrowserOptio
     i18n: new FakeI18n(),
     sidePanel: new FakeSidePanel(gesture),
     tabs,
-    windows: new FakeWindows(),
+    tabGroups: new FakeTabGroups(strip),
+    windows,
     commands: new FakeCommands(gesture, tabs),
     permissions,
     scripting,

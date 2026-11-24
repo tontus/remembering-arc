@@ -148,12 +148,13 @@ describe('the shortcut', () => {
     await allowAutoHide(browser);
     await writeSidebarMode(browser.storage.local, 'docked');
     openSidePanelPage(browser, 1);
-    const otherWindow = browser.tabs.open({ url: 'https://example.org/', windowId: 2 });
+    const otherWindowId = browser.windows.open();
+    const otherWindow = browser.tabs.open({ url: 'https://example.org/', windowId: otherWindowId });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     browser.commands.press(TOGGLE, otherWindow);
 
-    await vi.waitFor(() => expect(browser.sidePanel.isOpen(2)).toBe(true));
+    await vi.waitFor(() => expect(browser.sidePanel.isOpen(otherWindowId)).toBe(true));
     expect(await mode(browser)).toBe('docked');
   });
 

@@ -11,7 +11,9 @@ export default defineConfig({
     default_locale: 'en',
     // 134 is the first version whose bookmark nodes carry `folderType` and `syncing`.
     minimum_chrome_version: '134',
-    permissions: ['bookmarks', 'favicon', 'scripting', 'sidePanel', 'storage'],
+    // "tabs" lets the sidebar show every tab's title and URL. "tabGroups" holds each Space's
+    // tabs in a group per window (ADR-0002).
+    permissions: ['bookmarks', 'favicon', 'scripting', 'sidePanel', 'storage', 'tabGroups', 'tabs'],
     // Auto-hide adds its overlay to every website, so the extension asks for this only when
     // the user turns Auto-hide on (ADR-0003).
     optional_host_permissions: ['<all_urls>'],

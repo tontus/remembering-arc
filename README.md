@@ -2,7 +2,7 @@
 
 An open-source Chrome extension that brings Arc-style Spaces and a vertical sidebar to Chrome. Spaces sync across devices through Chrome's own bookmark sync. (Working name: the product will be renamed before release.)
 
-It's early: the sidebar shows your Spaces, Favorites, Pinned tabs and Folders from bookmarks. You can create Spaces, rename them, give each an emoji icon and one of Chrome's tab group colors, and drag them into a new order. Switching Spaces doesn't change your tabs yet. The sidebar is Docked in Chrome's side panel until you turn on Auto-hide in its settings, which asks for access to all websites. Ctrl+Shift+S (⌘⇧S on a Mac) switches between Auto-hide and Docked.
+It's early: the sidebar shows your Spaces, Favorites, Pinned tabs and Folders from bookmarks. You can create Spaces, rename them, give each an emoji icon and one of Chrome's tab group colors, and drag them into a new order. Each Space keeps its open tabs in a tab group named and colored like it, one per window. Clicking a Space's icon expands its group and collapses the others, so every tab stays loaded, and the sidebar lists the Space's open tabs. New tabs join the window's Active Space. The sidebar is Docked in Chrome's side panel until you turn on Auto-hide in its settings, which asks for access to all websites. Ctrl+Shift+S (⌘⇧S on a Mac) switches between Auto-hide and Docked.
 
 ## Development
 

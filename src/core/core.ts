@@ -1,8 +1,10 @@
 import type { BrowserPort, MessagePort } from '../browser/port';
-import { createLibrary, type Library } from '../library/library';
+import { createLibrary } from '../library/library';
+import { startTabOrchestrator } from '../orchestrator/tab-orchestrator';
 import { startModes } from './modes';
-import { runSidebarCommand } from './sidebar-commands';
-import { type CoreMessage, SIDEBAR_PORT_NAME, type SidebarMessage } from './sidebar-protocol';
+import { type CommandContext, runSidebarCommand } from './sidebar-commands';
+import { type CoreMessage, type SidebarMessage, windowOfSidebarPort } from './sidebar-protocol';
+import { createWindowViews } from './window-views';
 
 /**
  * Starts the core in the background service worker. Chrome stops the worker whenever it's
@@ -16,18 +18,21 @@ export function startCore(browser: BrowserPort): void {
     .catch((error: unknown) => console.error('Could not set the side panel behavior:', error));
 
   const library = createLibrary(browser);
+  const orchestrator = startTabOrchestrator(browser, library);
+  const views = createWindowViews(browser, library);
   browser.runtime.onConnect.addListener((port) => {
-    if (port.name === SIDEBAR_PORT_NAME) serveSidebar(port, library);
+    const windowId = windowOfSidebarPort(port.name);
+    if (windowId !== undefined) serveSidebar(port, { library, orchestrator, views, windowId });
   });
 
   startModes(browser);
 }
 
 /**
- * Sends a connected sidebar its view now and after every change, until it disconnects, and
- * runs the commands it sends.
+ * Sends a connected sidebar its window's view now and after every change, until it
+ * disconnects, and runs the commands it sends.
  */
-function serveSidebar(port: MessagePort, library: Library): void {
+function serveSidebar(port: MessagePort, context: CommandContext): void {
   const send = (message: CoreMessage) => {
     try {
       port.postMessage(message);
@@ -35,7 +40,8 @@ function serveSidebar(port: MessagePort, library: Library): void {
       // The sidebar has just closed. onDisconnect unsubscribes.
     }
   };
-  const unsubscribe = library.subscribe(
+  const unsubscribe = context.views.subscribe(
+    context.windowId,
     (view) => send({ type: 'view', view }),
     (error) => send({ type: 'error', message: error instanceof Error ? error.message : String(error) }),
   );
@@ -43,6 +49,6 @@ function serveSidebar(port: MessagePort, library: Library): void {
   port.onMessage.addListener((message) => {
     const { type, requestId, command } = message as SidebarMessage;
     if (type !== 'command') return;
-    void runSidebarCommand(library, command).then((outcome) => send({ type: 'commandResult', requestId, outcome }));
+    void runSidebarCommand(context, command).then((outcome) => send({ type: 'commandResult', requestId, outcome }));
   });
 }

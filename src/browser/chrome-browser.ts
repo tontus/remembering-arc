@@ -38,6 +38,9 @@ export function createChromeBrowser(): BrowserPort {
     get tabs() {
       return browser.tabs;
     },
+    get tabGroups() {
+      return browser.tabGroups;
+    },
     get windows() {
       return browser.windows;
     },

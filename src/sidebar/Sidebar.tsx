@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import type { TodayTab } from '../core/sidebar-protocol';
 import type { Favorite, Folder, PinnedTab, Space, SpaceItem } from '../library/structure';
 import { type RunCommand, useBrowser, useCore, useMessages } from './browser-context';
 import { faviconUrl } from './favicon';
@@ -6,11 +7,10 @@ import { Settings } from './Settings';
 import { NewSpaceForm, SpaceEditor, spaceColorStyle } from './space-forms';
 import { SpaceSwitcher } from './SpaceSwitcher';
 
-export function Sidebar() {
+/** The sidebar of one window. It shows that window's Active Space. */
+export function Sidebar({ windowId }: { windowId: number }) {
   const t = useMessages();
-  const { state, run } = useCore();
-  // The Active Space lives only in this sidebar for now, so it resets when the panel reopens.
-  const [activeSpaceId, setActiveSpaceId] = useState<string | null>(null);
+  const { state, run } = useCore(windowId);
   const [creating, setCreating] = useState(false);
   /** A control in the Space switcher to focus once it's drawn, after the new Space form closes. */
   const [focusTarget, setFocusTarget] = useState<string | null>(null);
@@ -31,7 +31,7 @@ export function Sidebar() {
   }
 
   const { view } = state;
-  const activeSpace = view.spaces.find((space) => space.id === activeSpaceId) ?? view.spaces[0];
+  const activeSpace = view.spaces.find((space) => space.id === view.activeSpaceId) ?? view.spaces[0];
   return (
     <div className="sidebar">
       {!view.syncing && <NotSyncingNotice />}
@@ -42,7 +42,8 @@ export function Sidebar() {
             spaces={view.spaces}
             run={run}
             onCreated={(spaceId) => {
-              setActiveSpaceId(spaceId);
+              // A new Space becomes the window's Active Space, with a new tab in its group.
+              void run({ type: 'switchSpace', spaceId });
               setCreating(false);
               setFocusTarget(`[data-space-id="${CSS.escape(spaceId)}"]`);
             }}
@@ -52,7 +53,9 @@ export function Sidebar() {
             }}
           />
         ) : (
-          activeSpace && <SpaceContents key={activeSpace.id} space={activeSpace} run={run} />
+          activeSpace && (
+            <SpaceContents key={activeSpace.id} space={activeSpace} todayTabs={view.todayTabs} run={run} />
+          )
         )}
       </main>
       <SpaceSwitcher
@@ -60,10 +63,7 @@ export function Sidebar() {
         activeSpaceId={activeSpace?.id}
         creating={creating}
         run={run}
-        onSelect={(spaceId) => {
-          setActiveSpaceId(spaceId);
-          setCreating(false);
-        }}
+        onSelect={() => setCreating(false)}
         onCreate={() => setCreating(true)}
       />
       <Settings />
@@ -99,7 +99,7 @@ function FavoritesRow({ favorites }: { favorites: Favorite[] }) {
   );
 }
 
-function SpaceContents({ space, run }: { space: Space; run: RunCommand }) {
+function SpaceContents({ space, todayTabs, run }: { space: Space; todayTabs: TodayTab[]; run: RunCommand }) {
   const t = useMessages();
   const [editing, setEditing] = useState(false);
   const editorId = useId();
@@ -140,7 +140,33 @@ function SpaceContents({ space, run }: { space: Space; run: RunCommand }) {
       ) : (
         <SpaceItems items={space.items} label={t('pinnedTabsLabel')} />
       )}
+      <TodayTabs tabs={todayTabs} run={run} />
     </>
+  );
+}
+
+/** The Active Space's Today tabs in this window, in tab strip order. Clicking one activates it. */
+function TodayTabs({ tabs, run }: { tabs: TodayTab[]; run: RunCommand }) {
+  const t = useMessages();
+  const { runtime } = useBrowser();
+  if (tabs.length === 0) return null;
+  return (
+    <ul className="today-tabs" aria-label={t('todayTabsLabel')}>
+      {tabs.map((tab) => (
+        <li key={tab.id}>
+          <button
+            type="button"
+            className="today-tab"
+            title={tab.url}
+            aria-current={tab.active ? 'page' : undefined}
+            onClick={() => void run({ type: 'activateTab', tabId: tab.id })}
+          >
+            <img src={faviconUrl(runtime, tab.url)} alt="" width={16} height={16} />
+            <span className="label">{tab.title}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 

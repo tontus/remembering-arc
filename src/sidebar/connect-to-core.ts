@@ -2,9 +2,9 @@ import type { BrowserPort, MessagePort } from '../browser/port';
 import {
   type CommandOutcome,
   type CoreMessage,
-  SIDEBAR_PORT_NAME,
   type SidebarCommand,
   type SidebarMessage,
+  sidebarPortName,
 } from '../core/sidebar-protocol';
 
 /** A pause before reconnecting, so a broken service worker can't cause a busy loop. */
@@ -23,14 +23,18 @@ export interface CoreConnection {
 const FAILED: CommandOutcome = { ok: false, reason: 'failed' };
 
 /**
- * Connects a sidebar to the core, passes on every view the core sends, and sends the core
- * commands.
+ * Connects the sidebar in a window to the core, passes on every view the core sends for that
+ * window, and sends the core commands.
  *
  * Chrome stops the idle service worker, which drops the connection. Reconnecting starts the
  * worker again, and the core answers with a fresh view. A command waiting for a reply when
  * the connection drops resolves as failed.
  */
-export function connectToCore(browser: Pick<BrowserPort, 'runtime'>, onUpdate: (update: CoreUpdate) => void): CoreConnection {
+export function connectToCore(
+  browser: Pick<BrowserPort, 'runtime'>,
+  windowId: number,
+  onUpdate: (update: CoreUpdate) => void,
+): CoreConnection {
   let closed = false;
   let port: MessagePort | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -49,7 +53,7 @@ export function connectToCore(browser: Pick<BrowserPort, 'runtime'>, onUpdate: (
   const connect = (): MessagePort => {
     clearTimeout(reconnectTimer);
     reconnectTimer = undefined;
-    const current = browser.runtime.connect({ name: SIDEBAR_PORT_NAME });
+    const current = browser.runtime.connect({ name: sidebarPortName(windowId) });
     port = current;
     current.onMessage.addListener((message) => {
       const coreMessage = message as CoreMessage;

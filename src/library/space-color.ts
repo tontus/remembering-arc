@@ -1,5 +1,7 @@
+import type { TabGroupColor } from '../browser/port';
+
 /** Chrome's nine tab group colors, in the order Chrome's own color picker shows them. */
-export const SPACE_COLORS = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'] as const;
+export const SPACE_COLORS = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'] as const satisfies readonly TabGroupColor[];
 
 /** A Space's color: one of Chrome's tab group colors, so the sidebar and the tab strip match. */
 export type SpaceColor = (typeof SPACE_COLORS)[number];
