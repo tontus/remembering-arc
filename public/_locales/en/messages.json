@@ -1,0 +1,50 @@
+{
+  "extName": {
+    "message": "Remembering Arc",
+    "description": "Name of the extension. Working name; the product will be renamed before release."
+  },
+  "extDescription": {
+    "message": "Arc-style Spaces and a vertical sidebar for Chrome, synced through your Chrome bookmarks.",
+    "description": "Extension description shown on the extensions page and in the Chrome Web Store."
+  },
+  "actionTitle": {
+    "message": "Open the sidebar",
+    "description": "Tooltip of the extension's toolbar icon, which opens the sidebar in Chrome's side panel."
+  },
+  "homeSpaceName": {
+    "message": "Home",
+    "description": "Name of the Space created when the user has none. It is written into the user's bookmarks as a folder title."
+  },
+  "loading": {
+    "message": "Loading your Spaces…",
+    "description": "Shown in the sidebar while it waits for the user's Spaces."
+  },
+  "libraryError": {
+    "message": "Couldn't read your Spaces from bookmarks.",
+    "description": "Shown in the sidebar when the user's Spaces can't be read from Chrome bookmarks."
+  },
+  "notSyncingTitle": {
+    "message": "Not syncing",
+    "description": "Heading of the notice shown when the user's Spaces are stored in bookmarks that don't sync to their account."
+  },
+  "notSyncingBody": {
+    "message": "Your Spaces are saved on this device only. Turn on bookmark sync in Chrome to keep them on all your devices.",
+    "description": "Body of the notice shown when the user's Spaces are stored in bookmarks that don't sync to their account."
+  },
+  "favoritesLabel": {
+    "message": "Favorites",
+    "description": "Accessible label of the row of Favorites, the saved entries shown in every Space."
+  },
+  "pinnedTabsLabel": {
+    "message": "Pinned tabs",
+    "description": "Accessible label of the list of the Space's Pinned tabs and Folders."
+  },
+  "emptySpace": {
+    "message": "This Space has no Pinned tabs yet.",
+    "description": "Shown in place of the list of Pinned tabs when the Space has none."
+  },
+  "spaceSwitcherLabel": {
+    "message": "Spaces",
+    "description": "Accessible label of the row of Space icons at the bottom of the sidebar."
+  }
+}

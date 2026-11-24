@@ -1,0 +1,182 @@
+:root {
+  color-scheme: light dark;
+  --background: #f4f3f1;
+  --surface: #ffffff;
+  --text: #1f1f1f;
+  --muted: #6b6b6b;
+  --hover: rgb(0 0 0 / 6%);
+  --selected: rgb(0 0 0 / 10%);
+  --notice-background: #fff4d6;
+  --notice-text: #5c4300;
+  --radius: 8px;
+  font: 13px/1.4 system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #1d1d1f;
+    --surface: #2a2a2d;
+    --text: #ececec;
+    --muted: #a0a0a0;
+    --hover: rgb(255 255 255 / 7%);
+    --selected: rgb(255 255 255 / 13%);
+    --notice-background: #3d3214;
+    --notice-text: #f3dc9e;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.status {
+  margin: 0;
+  padding: 16px;
+  color: var(--muted);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 8px;
+  gap: 8px;
+}
+
+.notice {
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--notice-background);
+  color: var(--notice-text);
+}
+
+.notice p {
+  margin: 2px 0 0;
+}
+
+.favorites {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  gap: 6px;
+}
+
+.favorite {
+  display: grid;
+  place-items: center;
+  height: 44px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.space {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.space-name {
+  margin: 4px 6px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  margin: 0 6px;
+  color: var(--muted);
+}
+
+.items .items {
+  padding-inline-start: 14px;
+}
+
+.pinned-tab,
+.folder-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: 6px;
+}
+
+.pinned-tab:hover,
+.folder-name:hover {
+  background: var(--hover);
+}
+
+.pinned-tab img {
+  flex: none;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-icon {
+  flex: none;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.2;
+  color: var(--muted);
+}
+
+.space-switcher ul {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.space-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.space-icon:hover {
+  background: var(--hover);
+}
+
+.space-icon[aria-pressed='true'] {
+  background: var(--selected);
+}
+
+.space-icon:focus-visible {
+  outline: 2px solid Highlight;
+}
+
+.initial {
+  font-size: 13px;
+  font-weight: 600;
+}
