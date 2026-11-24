@@ -166,26 +166,112 @@ export interface SidePanelPort {
   getLayout?(): Promise<{ side: SidePanelSide }>;
 }
 
-// --- Tabs, windows and keyboard shortcuts --------------------------------------------------
+// --- Tabs, tab groups, windows and keyboard shortcuts ----------------------------------
+
+/** A tab's `groupId` when it's in no tab group. */
+export const TAB_GROUP_ID_NONE = -1;
 
 export interface Tab {
   /** Missing for tabs that aren't in a browser window, such as devtools. */
   id?: number;
   windowId: number;
+  /** Position in the window's tab strip, from 0. */
+  index: number;
   active: boolean;
-  /** Present only when the extension has host access to the page. */
+  /** Whether Chrome has pinned the tab to the left of its strip: a Chrome-pinned tab. */
+  pinned: boolean;
+  /** The tab's group, or `TAB_GROUP_ID_NONE`. */
+  groupId: number;
+  /** With the "tabs" permission, Chrome reports every tab's URL and title. */
   url?: string;
+  title?: string;
+  /** When the tab last became active in its window, in milliseconds since the epoch. */
+  lastAccessed?: number;
+}
+
+/** What changed in a tab. Only the properties that changed are present. */
+export interface TabChangeInfo {
+  groupId?: number;
+  pinned?: boolean;
+  title?: string;
+  url?: string;
+  status?: string;
 }
 
 export interface TabsPort {
-  query(queryInfo: { windowId?: number; active?: boolean }): Promise<Tab[]>;
+  query(queryInfo: { windowId?: number; active?: boolean; groupId?: number }): Promise<Tab[]>;
+  /** Rejects if there's no such tab. */
+  get(tabId: number): Promise<Tab>;
   /** The tab the calling page is shown in. Undefined in the side panel and the service worker. */
   getCurrent(): Promise<Tab | undefined>;
+  /**
+   * Opens a tab, by default the New Tab page, at the end of the window's strip. It lands
+   * outside every tab group (ADR-0002).
+   */
+  create(createProperties: { windowId?: number; url?: string; active?: boolean }): Promise<Tab>;
+  /** Activating a tab inside a collapsed group expands the group (ADR-0002). */
+  update(tabId: number, updateProperties: { active?: boolean }): Promise<Tab | undefined>;
+  /**
+   * Adds tabs to a group and resolves with the group's ID. Without `groupId` it makes a new,
+   * untitled group in `createProperties.windowId`, which defaults to the current window.
+   * Chrome rejects it while the user is dragging a tab.
+   */
+  group(options: { tabIds: number | [number, ...number[]]; groupId?: number; createProperties?: { windowId?: number } }): Promise<number>;
+  onCreated: BrowserEvent<(tab: Tab) => void>;
+  onUpdated: BrowserEvent<(tabId: number, changeInfo: TabChangeInfo, tab: Tab) => void>;
+  onActivated: BrowserEvent<(activeInfo: { tabId: number; windowId: number }) => void>;
+  /** Fired when a tab moves within its window. */
+  onMoved: BrowserEvent<(tabId: number, moveInfo: { windowId: number; fromIndex: number; toIndex: number }) => void>;
+  onRemoved: BrowserEvent<(tabId: number, removeInfo: { windowId: number; isWindowClosing: boolean }) => void>;
+  /** Fired when a tab arrives in a window from another one. */
+  onAttached: BrowserEvent<(tabId: number, attachInfo: { newWindowId: number; newPosition: number }) => void>;
+  /** Fired when a tab leaves its window for another one. */
+  onDetached: BrowserEvent<(tabId: number, detachInfo: { oldWindowId: number; oldPosition: number }) => void>;
+}
+
+/** Chrome's tab group colors. */
+export type TabGroupColor = 'grey' | 'blue' | 'red' | 'yellow' | 'green' | 'pink' | 'purple' | 'cyan' | 'orange';
+
+export interface TabGroup {
+  id: number;
+  windowId: number;
+  /** Missing or empty for an untitled group. */
+  title?: string;
+  color: TabGroupColor;
+  /** A collapsed group hides its tabs in the strip. Its tabs stay loaded. */
+  collapsed: boolean;
+}
+
+export interface TabGroupsPort {
+  /** Rejects if there's no such group. */
+  get(groupId: number): Promise<TabGroup>;
+  query(queryInfo: { windowId?: number }): Promise<TabGroup[]>;
+  /**
+   * Collapsing the group that holds the active tab leaves that tab active (ADR-0002).
+   * Resolves with the changed group.
+   */
+  update(groupId: number, updateProperties: { title?: string; color?: TabGroupColor; collapsed?: boolean }): Promise<TabGroup | undefined>;
+  onCreated: BrowserEvent<(group: TabGroup) => void>;
+  onUpdated: BrowserEvent<(group: TabGroup) => void>;
+  /** Fired when a group closes, as it does once its last tab leaves. */
+  onRemoved: BrowserEvent<(group: TabGroup) => void>;
+}
+
+/** Only normal windows have tab groups and take part in Spaces. */
+export type WindowType = 'normal' | 'popup' | 'panel' | 'app' | 'devtools';
+
+export interface BrowserWindow {
+  id?: number;
+  type?: WindowType;
+  incognito: boolean;
 }
 
 export interface WindowsPort {
   /** The window the calling page is in. */
   getCurrent(): Promise<{ id?: number }>;
+  /** Rejects if there's no such window. */
+  get(windowId: number): Promise<BrowserWindow>;
+  onRemoved: BrowserEvent<(windowId: number) => void>;
 }
 
 export interface CommandsPort {
@@ -246,6 +332,7 @@ export interface BrowserPort {
   i18n: I18nPort;
   sidePanel: SidePanelPort;
   tabs: TabsPort;
+  tabGroups: TabGroupsPort;
   windows: WindowsPort;
   commands: CommandsPort;
   permissions: PermissionsPort;

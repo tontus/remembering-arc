@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeBrowser } from '../browser/fake/fake-browser';
+import { FAKE_WINDOW_ID } from '../browser/fake/fake-tabs';
 import { connectToCore, type CoreUpdate } from '../sidebar/connect-to-core';
 import { startCore } from './core';
 import type { SidebarView } from './sidebar-protocol';
 
-/** Connects a sidebar to the core and records what it receives. */
-function openSidebar(browser: ReturnType<typeof createFakeBrowser>) {
+/** Connects a sidebar in a window to the core and records what it receives. */
+function openSidebar(browser: ReturnType<typeof createFakeBrowser>, windowId = FAKE_WINDOW_ID) {
   const messages: CoreUpdate[] = [];
-  const { run, close } = connectToCore(browser, (message) => messages.push(message));
+  const { run, close } = connectToCore(browser, windowId, (message) => messages.push(message));
   const latestView = (): SidebarView | undefined =>
     messages.findLast((message) => message.type === 'view')?.view;
   return { messages, latestView, run, close };

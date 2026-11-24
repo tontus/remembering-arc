@@ -23,6 +23,10 @@
     "message": "Couldn't read your Spaces from bookmarks.",
     "description": "Shown in the sidebar when the user's Spaces can't be read from Chrome bookmarks."
   },
+  "windowError": {
+    "message": "Couldn't tell which window the sidebar is in. Close the sidebar and open it again.",
+    "description": "Shown in the sidebar when Chrome doesn't say which browser window the sidebar belongs to."
+  },
   "notSyncingTitle": {
     "message": "Not syncing",
     "description": "Heading of the notice shown when the user's Spaces are stored in bookmarks that don't sync to their account."
@@ -42,6 +46,10 @@
   "emptySpace": {
     "message": "This Space has no Pinned tabs yet.",
     "description": "Shown in place of the list of Pinned tabs when the Space has none."
+  },
+  "todayTabsLabel": {
+    "message": "Today tabs",
+    "description": "Accessible label of the list of the Space's open tabs that aren't Pinned tabs or Favorites. Clicking one switches to that tab."
   },
   "spaceSwitcherLabel": {
     "message": "Spaces",

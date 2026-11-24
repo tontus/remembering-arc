@@ -330,13 +330,11 @@ describe('fake permissions', () => {
 describe('fake tabs and scripting', () => {
   const script = { id: 'overlay', js: ['overlay.js'], matches: ['<all_urls>'] };
 
-  it('shows a tab’s URL only where the extension has host access', async () => {
-    const { tabs, permissions } = createFakeBrowser();
-    tabs.open({ url: 'https://example.com/' });
+  it('reports every tab’s URL and title, as Chrome does with the "tabs" permission', async () => {
+    const { tabs } = createFakeBrowser();
+    tabs.open({ url: 'https://example.com/', title: 'Example' });
 
-    expect((await tabs.query({}))[0]!.url).toBeUndefined();
-    permissions.grant(['<all_urls>']);
-    expect((await tabs.query({}))[0]!.url).toBe('https://example.com/');
+    expect(await tabs.query({})).toMatchObject([{ url: 'https://example.com/', title: 'Example' }]);
   });
 
   it('refuses duplicate and unknown script IDs, as Chrome does', async () => {
@@ -379,5 +377,140 @@ describe('fake tabs and scripting', () => {
     );
 
     expect(scripting.injectedFiles(page.id!)).toEqual(['a.js']);
+  });
+});
+
+describe('fake tabs, windows and tab groups', () => {
+  /** Each tab in a window's strip, in order, as `id:group title` with `*` on the active tab. */
+  async function strip(browser: ReturnType<typeof createFakeBrowser>, windowId = 1) {
+    const groups = new Map((await browser.tabGroups.query({ windowId })).map((group) => [group.id, group.title]));
+    return (await browser.tabs.query({ windowId })).map(
+      (tab) => `${tab.id}:${tab.pinned ? 'pinned' : (groups.get(tab.groupId) ?? '-')}${tab.active ? '*' : ''}`,
+    );
+  }
+
+  it('makes a new, expanded group where its tab was, and reports it', async () => {
+    const browser = createFakeBrowser();
+    const first = browser.tabs.open({ url: 'https://a.example/' });
+    browser.tabs.open({ url: 'https://b.example/', active: false });
+    const created = nextCall(browser.tabGroups.onCreated);
+    const updated = nextCall(browser.tabs.onUpdated);
+
+    const groupId = await browser.tabs.group({ tabIds: first.id!, createProperties: { windowId: 1 } });
+    await browser.tabGroups.update(groupId, { title: 'Work', color: 'blue' });
+
+    expect(await strip(browser)).toEqual(['1:Work*', '2:-']);
+    expect(await created).toEqual([{ id: groupId, windowId: 1, title: '', color: expect.any(String), collapsed: false }]);
+    expect((await updated).slice(0, 2)).toEqual([first.id, { groupId }]);
+  });
+
+  it('adds tabs from the right of a group at its end and from the left at its start', async () => {
+    const browser = createFakeBrowser();
+    const left = browser.tabs.open({ url: 'https://left.example/' });
+    const middle = browser.tabs.open({ url: 'https://middle.example/' });
+    const right = browser.tabs.open({ url: 'https://right.example/' });
+    const groupId = await browser.tabs.group({ tabIds: middle.id!, createProperties: { windowId: 1 } });
+    await browser.tabGroups.update(groupId, { title: 'G' });
+
+    await browser.tabs.group({ tabIds: [left.id!, right.id!], groupId });
+
+    expect(await strip(browser)).toEqual(['1:G', '2:G', '3:G*']);
+  });
+
+  it('closes a group once its last tab leaves it', async () => {
+    const browser = createFakeBrowser();
+    const tab = browser.tabs.open({ url: 'https://example.com/' });
+    const groupId = await browser.tabs.group({ tabIds: tab.id!, createProperties: { windowId: 1 } });
+    const removed = nextCall(browser.tabGroups.onRemoved);
+
+    browser.tabs.dragOutOfGroup(tab.id!);
+
+    expect((await removed)[0]).toMatchObject({ id: groupId });
+    expect(await browser.tabGroups.query({})).toEqual([]);
+    await expect(browser.tabGroups.get(groupId)).rejects.toThrow(`No group with id: ${groupId}.`);
+  });
+
+  it('turns down tab edits while the user drags a tab, as Chrome does', async () => {
+    const browser = createFakeBrowser();
+    const tab = browser.tabs.open({ url: 'https://example.com/', active: false });
+    browser.tabs.dragging = true;
+
+    await expect(browser.tabs.group({ tabIds: tab.id!, createProperties: { windowId: 1 } })).rejects.toThrow(
+      'Tabs cannot be edited right now (user may be dragging a tab).',
+    );
+    await expect(browser.tabs.update(tab.id!, { active: true })).rejects.toThrow('user may be dragging a tab');
+    browser.tabs.dragging = false;
+    await browser.tabs.update(tab.id!, { active: true });
+    expect(await strip(browser)).toEqual(['1:-*']);
+  });
+
+  it('opens a link from a grouped tab next to it, in its group', async () => {
+    const browser = createFakeBrowser();
+    const page = browser.tabs.open({ url: 'https://example.com/' });
+    browser.tabs.open({ url: 'https://other.example/', active: false });
+    const groupId = await browser.tabs.group({ tabIds: page.id!, createProperties: { windowId: 1 } });
+    await browser.tabGroups.update(groupId, { title: 'G' });
+
+    browser.tabs.open({ url: 'https://example.com/link', openerTabId: page.id, active: false });
+
+    expect(await strip(browser)).toEqual(['1:G*', '3:G', '2:-']);
+  });
+
+  it('activates the neighbour of a closed active tab, and reports when the tab last became active', async () => {
+    const browser = createFakeBrowser();
+    const a = browser.tabs.open({ url: 'https://a.example/' });
+    const b = browser.tabs.open({ url: 'https://b.example/' });
+    const before = (await browser.tabs.get(a.id!)).lastAccessed!;
+
+    browser.tabs.close(b.id!);
+
+    expect(await strip(browser)).toEqual(['1:-*']);
+    expect((await browser.tabs.get(a.id!)).lastAccessed).toBeGreaterThan(before);
+  });
+
+  it('moves a dragged tab to the end of another window, outside every group', async () => {
+    const browser = createFakeBrowser();
+    const tab = browser.tabs.open({ url: 'https://example.com/' });
+    await browser.tabs.group({ tabIds: tab.id!, createProperties: { windowId: 1 } });
+    const other = browser.windows.open();
+    browser.tabs.open({ url: 'https://other.example/', windowId: other });
+    const attached = nextCall(browser.tabs.onAttached);
+
+    browser.tabs.dragToWindow(tab.id!, other);
+
+    expect(await attached).toEqual([tab.id, { newWindowId: other, newPosition: 1 }]);
+    expect(await strip(browser, other)).toEqual(['2:-', '1:-*']);
+    expect(await browser.tabGroups.query({})).toEqual([]);
+  });
+
+  it('knows each window’s type, and refuses groups outside normal windows', async () => {
+    const browser = createFakeBrowser();
+    const popup = browser.windows.open({ type: 'popup' });
+    const tab = browser.tabs.open({ url: 'https://example.com/', windowId: popup });
+
+    expect(await browser.windows.get(popup)).toEqual({ id: popup, type: 'popup', incognito: false });
+    await expect(browser.tabs.group({ tabIds: tab.id!, createProperties: { windowId: popup } })).rejects.toThrow(
+      'Grouping is not supported by tabs in this window.',
+    );
+    const removed = nextCall(browser.windows.onRemoved);
+    browser.windows.close(popup);
+    expect(await removed).toEqual([popup]);
+    await expect(browser.windows.get(popup)).rejects.toThrow(`No window with id: ${popup}.`);
+  });
+
+  it('pins a tab out of its group, and unpins it just after the pinned tabs', async () => {
+    const browser = createFakeBrowser();
+    browser.tabs.open({ url: 'https://a.example/' });
+    const tab = browser.tabs.open({ url: 'https://b.example/' });
+    await browser.tabs.group({ tabIds: tab.id!, createProperties: { windowId: 1 } });
+
+    browser.tabs.setPinned(tab.id!, true);
+    expect(await strip(browser)).toEqual(['2:pinned*', '1:-']);
+    expect(await browser.tabGroups.query({})).toEqual([]);
+    const updated = nextCall(browser.tabs.onUpdated);
+    browser.tabs.setPinned(tab.id!, false);
+
+    expect((await updated).slice(0, 2)).toEqual([tab.id, { pinned: false }]);
+    expect(await strip(browser)).toEqual(['2:-*', '1:-']);
   });
 });

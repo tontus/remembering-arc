@@ -29,13 +29,16 @@ export type SidebarState = { status: 'loading' } | { status: 'ready'; view: Side
 /** Sends the core a command and resolves with how it went. */
 export type RunCommand = (command: SidebarCommand) => Promise<CommandOutcome>;
 
-/** The view the core sends this sidebar, kept up to date, and a way to send it commands. */
-export function useCore(): { state: SidebarState; run: RunCommand } {
+/**
+ * The view the core sends the sidebar in a window, kept up to date, and a way to send the
+ * core commands.
+ */
+export function useCore(windowId: number): { state: SidebarState; run: RunCommand } {
   const browser = useBrowser();
   const [state, setState] = useState<SidebarState>({ status: 'loading' });
   const connection = useRef<CoreConnection>(null);
   useEffect(() => {
-    const opened = connectToCore(browser, (message) => {
+    const opened = connectToCore(browser, windowId, (message) => {
       if (message.type === 'view') {
         setState({ status: 'ready', view: message.view });
       } else {
@@ -48,7 +51,7 @@ export function useCore(): { state: SidebarState; run: RunCommand } {
       opened.close();
       if (connection.current === opened) connection.current = null;
     };
-  }, [browser]);
+  }, [browser, windowId]);
   const run = useCallback<RunCommand>(
     (command) => connection.current?.run(command) ?? Promise.resolve({ ok: false, reason: 'failed' }),
     [],

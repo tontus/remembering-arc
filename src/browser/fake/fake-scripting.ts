@@ -58,11 +58,11 @@ export class FakeScripting implements ScriptingPort {
   }
 
   async executeScript({ target, files }: { target: { tabId: number }; files: string[] }): Promise<unknown[]> {
-    const tab = this.tabs.get(target.tabId);
+    const tab = this.tabs.snapshot(target.tabId);
     if (!tab) throw new Error(`No tab with id: ${target.tabId}.`);
-    const reason = whyScriptsCantRun(tab.url, this.permissions);
+    const reason = whyScriptsCantRun(tab.url!, this.permissions);
     if (reason) throw new Error(reason);
-    this.#run(tab.id, files);
+    this.#run(target.tabId, files);
     return [{ frameId: 0, result: undefined }];
   }
 

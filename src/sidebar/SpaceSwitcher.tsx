@@ -16,8 +16,8 @@ import { type RunCommand, useMessages } from './browser-context';
 import { commandErrorMessage, spaceColorStyle } from './space-forms';
 
 /**
- * The row of Space icons at the bottom of the sidebar. Clicking an icon shows that Space.
- * Dragging one, or Alt and an arrow key, moves it among the Spaces.
+ * The row of Space icons at the bottom of the sidebar. Clicking an icon makes that Space the
+ * window's Active Space. Dragging one, or Alt and an arrow key, moves it among the Spaces.
  */
 export function SpaceSwitcher({
   spaces,
@@ -31,6 +31,7 @@ export function SpaceSwitcher({
   activeSpaceId: string | undefined;
   creating: boolean;
   run: RunCommand;
+  /** Called when the user picks a Space, as the core starts switching to it. */
   onSelect: (spaceId: string) => void;
   onCreate: () => void;
 }) {
@@ -68,6 +69,14 @@ export function SpaceSwitcher({
       setError(commandErrorMessage(t, outcome));
     });
     return true;
+  };
+
+  const select = (spaceId: string) => {
+    setError(null);
+    onSelect(spaceId);
+    run({ type: 'switchSpace', spaceId }).then((outcome) => {
+      if (!outcome.ok) setError(commandErrorMessage(t, outcome));
+    });
   };
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
@@ -112,7 +121,7 @@ export function SpaceSwitcher({
                 key={id}
                 space={byId.get(id)!}
                 active={!creating && id === activeSpaceId}
-                onSelect={onSelect}
+                onSelect={select}
                 onKeyMove={onKeyMove}
               />
             ))}

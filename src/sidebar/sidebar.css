@@ -170,6 +170,47 @@ ul {
   flex: none;
 }
 
+/* Today tabs sit below the Pinned tabs, past a divider, as in Arc. */
+.today-tabs {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--selected);
+}
+
+.today-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.today-tab:hover {
+  background: var(--hover);
+}
+
+.today-tab[aria-current] {
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+}
+
+.today-tab:focus-visible {
+  outline: 2px solid var(--group-blue);
+  outline-offset: -2px;
+}
+
+.today-tab img {
+  flex: none;
+}
+
 .label {
   overflow: hidden;
   text-overflow: ellipsis;
