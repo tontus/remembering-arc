@@ -1,0 +1,35 @@
+{
+  "name": "remembering-arc",
+  "description": "Arc-style Spaces and a vertical sidebar for Chrome, synced through Chrome bookmarks.",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "wxt build && playwright test",
+    "postinstall": "wxt prepare"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@wxt-dev/module-react": "1.2.2",
+    "typescript": "7.0.2",
+    "vitest": "4.1.12",
+    "wxt": "0.21.5"
+  }
+}
