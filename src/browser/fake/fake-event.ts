@@ -28,15 +28,18 @@ export class FakeEvent<Listener extends (...args: never[]) => void> implements B
    * that caused the event still hears it.
    */
   dispatch(...args: Parameters<Listener>): void {
-    queueMicrotask(() => {
-      for (const listener of [...this.#listeners]) {
-        if (!this.#listeners.has(listener)) continue;
-        try {
-          listener(...args);
-        } catch (error) {
-          console.error('Error in event handler:', error);
-        }
+    queueMicrotask(() => this.deliver(...args));
+  }
+
+  /** Calls every listener now. For fakes that must wrap the call, such as in a user gesture. */
+  deliver(...args: Parameters<Listener>): void {
+    for (const listener of [...this.#listeners]) {
+      if (!this.#listeners.has(listener)) continue;
+      try {
+        listener(...args);
+      } catch (error) {
+        console.error('Error in event handler:', error);
       }
-    });
+    }
   }
 }

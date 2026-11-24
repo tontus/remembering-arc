@@ -155,8 +155,86 @@ export interface I18nPort {
   getMessage(messageName: string, substitutions?: string | string[]): string;
 }
 
+/** The side of the window that Chrome shows its side panel on. The user picks it in Chrome's settings. */
+export type SidePanelSide = 'left' | 'right';
+
 export interface SidePanelPort {
   setPanelBehavior(behavior: { openPanelOnActionClick: boolean }): Promise<void>;
+  /** Opens the side panel in a window. Chrome allows it only straight after a user action, before any `await`. */
+  open(options: { windowId: number }): Promise<void>;
+  /** Chrome 140+. Missing on older versions. */
+  getLayout?(): Promise<{ side: SidePanelSide }>;
+}
+
+// --- Tabs, windows and keyboard shortcuts --------------------------------------------------
+
+export interface Tab {
+  /** Missing for tabs that aren't in a browser window, such as devtools. */
+  id?: number;
+  windowId: number;
+  active: boolean;
+  /** Present only when the extension has host access to the page. */
+  url?: string;
+}
+
+export interface TabsPort {
+  query(queryInfo: { windowId?: number; active?: boolean }): Promise<Tab[]>;
+  /** The tab the calling page is shown in. Undefined in the side panel and the service worker. */
+  getCurrent(): Promise<Tab | undefined>;
+}
+
+export interface WindowsPort {
+  /** The window the calling page is in. */
+  getCurrent(): Promise<{ id?: number }>;
+}
+
+export interface CommandsPort {
+  /** Fired when the user presses one of the extension's keyboard shortcuts. `tab` is the active tab. */
+  onCommand: BrowserEvent<(command: string, tab?: Tab) => void>;
+}
+
+// --- Permissions and content scripts ----------------------------------------------------
+
+export interface Permissions {
+  /** Host match patterns, such as `<all_urls>`. */
+  origins?: string[];
+  permissions?: string[];
+}
+
+export interface PermissionsPort {
+  /**
+   * Asks the user for optional permissions the manifest declares, and resolves with whether
+   * they're granted. Chrome allows it only during a user action.
+   */
+  request(permissions: Permissions): Promise<boolean>;
+  contains(permissions: Permissions): Promise<boolean>;
+  onAdded: BrowserEvent<(permissions: Permissions) => void>;
+  /** Also fired when the user takes access away on Chrome's extensions page. */
+  onRemoved: BrowserEvent<(permissions: Permissions) => void>;
+}
+
+export interface RegisteredContentScript {
+  id: string;
+  /** Paths inside the extension. */
+  js: string[];
+  matches?: string[];
+  runAt?: 'document_start' | 'document_end' | 'document_idle';
+  allFrames?: boolean;
+  /** Defaults to true: Chrome keeps the registration after the browser restarts. */
+  persistAcrossSessions?: boolean;
+}
+
+export interface ScriptingPort {
+  /**
+   * Chrome runs a registered script in every matching page loaded from then on, where the
+   * extension has host access. Rejects an ID that is already registered.
+   */
+  registerContentScripts(scripts: RegisteredContentScript[]): Promise<void>;
+  /** Rejects an ID that isn't registered. Omit `filter` to unregister everything. */
+  unregisterContentScripts(filter?: { ids?: string[] }): Promise<void>;
+  getRegisteredContentScripts(filter?: { ids?: string[] }): Promise<RegisteredContentScript[]>;
+  /** Runs files in a tab's page now. Rejects where content scripts can't run, such as chrome:// pages. */
+  executeScript(injection: { target: { tabId: number }; files: string[] }): Promise<unknown[]>;
 }
 
 // --- The port ----------------------------------------------------------------------------
@@ -167,4 +245,9 @@ export interface BrowserPort {
   runtime: RuntimePort;
   i18n: I18nPort;
   sidePanel: SidePanelPort;
+  tabs: TabsPort;
+  windows: WindowsPort;
+  commands: CommandsPort;
+  permissions: PermissionsPort;
+  scripting: ScriptingPort;
 }

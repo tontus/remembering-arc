@@ -1,5 +1,6 @@
 import type { BrowserPort, MessagePort } from '../browser/port';
 import { createLibrary, type Library } from '../library/library';
+import { startModes } from './modes';
 import { type CoreMessage, SIDEBAR_PORT_NAME } from './sidebar-protocol';
 
 /**
@@ -17,6 +18,8 @@ export function startCore(browser: BrowserPort): void {
   browser.runtime.onConnect.addListener((port) => {
     if (port.name === SIDEBAR_PORT_NAME) serveSidebar(port, library);
   });
+
+  startModes(browser);
 }
 
 /** Sends a connected sidebar its view now and after every change, until it disconnects. */
