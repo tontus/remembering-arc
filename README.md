@@ -2,7 +2,7 @@
 
 An open-source Chrome extension that brings Arc-style Spaces and a vertical sidebar to Chrome. Spaces sync across devices through Chrome's own bookmark sync. (Working name: the product will be renamed before release.)
 
-It's early: the Docked sidebar shows your Spaces, Favorites, Pinned tabs and Folders from bookmarks. Switching Spaces doesn't change your tabs yet.
+It's early: the sidebar shows your Spaces, Favorites, Pinned tabs and Folders from bookmarks. Switching Spaces doesn't change your tabs yet. The sidebar is Docked in Chrome's side panel until you turn on Auto-hide in its settings, which asks for access to all websites. Ctrl+Shift+S (⌘⇧S on a Mac) switches between Auto-hide and Docked.
 
 ## Development
 
@@ -31,7 +31,7 @@ Playwright needs its Chromium once: `npx playwright install chromium`.
 - [`GLOSSARY.md`](GLOSSARY.md) defines the vocabulary: Space, Pinned tab, Folder, Favorite and so on.
 - [`docs/adr/`](docs/adr/) records the decisions that may look odd, starting with bookmarks as the source of truth.
 - `src/browser/` is the browser port, the only code that touches Chrome's extension APIs, and its in-memory fake for tests.
-- `src/library/` reads the Space structure from bookmarks. `src/core/` runs in the background service worker and serves each open sidebar. `src/sidebar/` is the React sidebar.
+- `src/library/` reads the Space structure from bookmarks. `src/core/` runs in the background service worker and serves each open sidebar. `src/sidebar/` is the React sidebar. `src/auto-hide/` is the Auto-hide overlay that the content script adds to web pages.
 
 ## License
 

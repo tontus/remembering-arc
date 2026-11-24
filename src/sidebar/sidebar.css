@@ -180,3 +180,34 @@ ul {
   font-size: 13px;
   font-weight: 600;
 }
+
+.settings {
+  color: var(--muted);
+}
+
+.settings summary {
+  padding: 2px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.settings summary:hover {
+  background: var(--hover);
+}
+
+.settings[open] summary {
+  margin-bottom: 6px;
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px;
+  color: var(--text);
+}
+
+.setting-hint {
+  margin: 4px 6px 0;
+  font-size: 12px;
+}

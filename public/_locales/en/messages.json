@@ -46,5 +46,29 @@
   "spaceSwitcherLabel": {
     "message": "Spaces",
     "description": "Accessible label of the row of Space icons at the bottom of the sidebar."
+  },
+  "toggleSidebarModeCommand": {
+    "message": "Switch the sidebar between Auto-hide and Docked",
+    "description": "Description of the keyboard shortcut, shown in Chrome's extension shortcut settings. Auto-hide: the sidebar slides over the page from the window's edge. Docked: the sidebar stays open in Chrome's side panel."
+  },
+  "settingsLabel": {
+    "message": "Settings",
+    "description": "Heading that opens the sidebar's settings."
+  },
+  "autoHideLabel": {
+    "message": "Auto-hide",
+    "description": "Label of the switch that turns on Auto-hide, the sidebar mode where the sidebar stays hidden until the mouse reaches the window's edge."
+  },
+  "autoHideHint": {
+    "message": "Hide the sidebar until the mouse reaches the edge of the window. Chrome asks for access to all websites, because the sidebar appears on top of them.",
+    "description": "Explains the Auto-hide switch and why turning it on asks for access to all websites."
+  },
+  "autoHideDeclined": {
+    "message": "Auto-hide needs access to websites, so the sidebar stays Docked in Chrome's side panel.",
+    "description": "Shown after the user declines access to all websites when turning on Auto-hide. Docked: the sidebar stays open in Chrome's side panel."
+  },
+  "autoHideFrameTitle": {
+    "message": "Sidebar",
+    "description": "Accessible title of the frame that shows the sidebar over a web page in Auto-hide mode."
   }
 }

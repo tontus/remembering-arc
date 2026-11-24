@@ -257,3 +257,127 @@ describe('fake i18n', () => {
     expect(i18n.getMessage('noSuchMessage')).toBe('');
   });
 });
+
+describe('fake user gestures', () => {
+  it('lets the side panel open and permissions be asked for only during a user gesture', async () => {
+    const browser = createFakeBrowser();
+
+    await expect(browser.sidePanel.open({ windowId: 1 })).rejects.toThrow('user gesture');
+    await expect(browser.permissions.request({ origins: ['<all_urls>'] })).rejects.toThrow('user gesture');
+    await browser.withUserGesture(() => browser.sidePanel.open({ windowId: 1 }));
+
+    expect(browser.sidePanel.isOpen(1)).toBe(true);
+  });
+
+  it('ends the gesture at the first await, as in the service worker', async () => {
+    const browser = createFakeBrowser();
+
+    const late = browser.withUserGesture(async () => {
+      await browser.storage.local.get();
+      return browser.sidePanel.open({ windowId: 1 });
+    });
+
+    await expect(late).rejects.toThrow('user gesture');
+  });
+
+  it('runs shortcut listeners inside the key press’s gesture', async () => {
+    const browser = createFakeBrowser();
+    const tab = browser.tabs.open({ url: 'https://example.com/' });
+    const opened = new Promise<void>((resolve, reject) => {
+      browser.commands.onCommand.addListener((_command, pressedIn) => {
+        browser.sidePanel.open({ windowId: pressedIn!.windowId }).then(resolve, reject);
+      });
+    });
+
+    browser.commands.press('toggle-sidebar-mode', tab);
+
+    await opened;
+    expect(browser.sidePanel.isOpen(tab.windowId)).toBe(true);
+  });
+});
+
+describe('fake permissions', () => {
+  it('asks the user only for missing optional host permissions the manifest declares', async () => {
+    const { permissions, withUserGesture } = createFakeBrowser();
+    const added = nextCall(permissions.onAdded);
+
+    permissions.promptAnswer = 'deny';
+    expect(await withUserGesture(() => permissions.request({ origins: ['<all_urls>'] }))).toBe(false);
+    permissions.promptAnswer = 'allow';
+    expect(await withUserGesture(() => permissions.request({ origins: ['<all_urls>'] }))).toBe(true);
+    expect(await withUserGesture(() => permissions.request({ origins: ['<all_urls>'] }))).toBe(true);
+
+    expect(permissions.promptCount).toBe(2);
+    expect(await added).toEqual([{ origins: ['<all_urls>'], permissions: [] }]);
+    expect(await permissions.contains({ origins: ['<all_urls>'] })).toBe(true);
+    await expect(withUserGesture(() => permissions.request({ origins: ['https://example.com/*'] }))).rejects.toThrow(
+      'Only permissions specified in the manifest may be requested.',
+    );
+  });
+
+  it('fires onRemoved when the user takes access away', async () => {
+    const { permissions } = createFakeBrowser();
+    permissions.grant(['<all_urls>']);
+    const removed = nextCall(permissions.onRemoved);
+
+    permissions.revoke(['<all_urls>']);
+
+    expect(await removed).toEqual([{ origins: ['<all_urls>'], permissions: [] }]);
+    expect(await permissions.contains({ origins: ['<all_urls>'] })).toBe(false);
+  });
+});
+
+describe('fake tabs and scripting', () => {
+  const script = { id: 'overlay', js: ['overlay.js'], matches: ['<all_urls>'] };
+
+  it('shows a tab’s URL only where the extension has host access', async () => {
+    const { tabs, permissions } = createFakeBrowser();
+    tabs.open({ url: 'https://example.com/' });
+
+    expect((await tabs.query({}))[0]!.url).toBeUndefined();
+    permissions.grant(['<all_urls>']);
+    expect((await tabs.query({}))[0]!.url).toBe('https://example.com/');
+  });
+
+  it('refuses duplicate and unknown script IDs, as Chrome does', async () => {
+    const { scripting } = createFakeBrowser();
+    await scripting.registerContentScripts([script]);
+
+    await expect(scripting.registerContentScripts([script])).rejects.toThrow("Duplicate script ID 'overlay'");
+    await scripting.unregisterContentScripts({ ids: ['overlay'] });
+    await expect(scripting.unregisterContentScripts({ ids: ['overlay'] })).rejects.toThrow("Nonexistent script ID 'overlay'");
+  });
+
+  it('runs registered scripts in pages that load later, only where content scripts can run with host access', async () => {
+    const { scripting, tabs, permissions } = createFakeBrowser();
+    await scripting.registerContentScripts([script]);
+    const early = tabs.open({ url: 'https://example.com/' });
+    permissions.grant(['<all_urls>']);
+
+    const page = tabs.open({ url: 'https://example.org/' });
+    const newTab = tabs.open({ url: 'chrome://newtab/' });
+    const webStore = tabs.open({ url: 'https://chromewebstore.google.com/' });
+
+    expect(scripting.injectedFiles(early.id!)).toEqual([]);
+    expect(scripting.injectedFiles(page.id!)).toEqual(['overlay.js']);
+    expect(scripting.injectedFiles(newTab.id!)).toEqual([]);
+    expect(scripting.injectedFiles(webStore.id!)).toEqual([]);
+  });
+
+  it('runs a script in an open page on request, and refuses pages where content scripts can’t run', async () => {
+    const { scripting, tabs, permissions } = createFakeBrowser();
+    const page = tabs.open({ url: 'https://example.com/' });
+    const newTab = tabs.open({ url: 'chrome://newtab/' });
+
+    await expect(scripting.executeScript({ target: { tabId: page.id! }, files: ['a.js'] })).rejects.toThrow(
+      'Cannot access contents of the page',
+    );
+    permissions.grant(['<all_urls>']);
+    await scripting.executeScript({ target: { tabId: page.id! }, files: ['a.js'] });
+    await expect(scripting.executeScript({ target: { tabId: newTab.id! }, files: ['a.js'] })).rejects.toThrow(
+      'Cannot access a chrome:// URL',
+    );
+
+    expect(scripting.injectedFiles(page.id!)).toEqual(['a.js']);
+  });
+});

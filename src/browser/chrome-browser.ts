@@ -1,9 +1,10 @@
 import { browser } from 'wxt/browser';
-import type { BrowserPort } from './port';
+import type { BrowserPort, RegisteredContentScript, ScriptingPort } from './port';
 
 /**
- * The production browser port. Every member is Chrome's own API object, so each call goes
- * straight through to Chrome; the port only narrows what the rest of the code can see.
+ * The production browser port. Every member is Chrome's own API object, or a thin adapter
+ * where WXT's types differ, so each call goes straight through to Chrome; the port only
+ * narrows what the rest of the code can see.
  *
  * Members are read from Chrome when first used. Chrome leaves out an API whose permission
  * the manifest doesn't request (`chrome.storage` without "storage"), so the manifest only
@@ -33,6 +34,31 @@ export function createChromeBrowser(): BrowserPort {
     },
     get sidePanel() {
       return browser.sidePanel;
+    },
+    get tabs() {
+      return browser.tabs;
+    },
+    get windows() {
+      return browser.windows;
+    },
+    get commands() {
+      return browser.commands;
+    },
+    get permissions() {
+      return browser.permissions;
+    },
+    get scripting() {
+      const { scripting } = browser;
+      const port: ScriptingPort = {
+        registerContentScripts: (scripts) => scripting.registerContentScripts(scripts),
+        unregisterContentScripts: (filter) => scripting.unregisterContentScripts(filter),
+        // The extension registers JavaScript only, so every script has `js`.
+        getRegisteredContentScripts: (filter) =>
+          scripting.getRegisteredContentScripts(filter) as Promise<RegisteredContentScript[]>,
+        // WXT types `files` as the script paths it built, which the port doesn't know.
+        executeScript: (injection) => scripting.executeScript(injection as Parameters<typeof scripting.executeScript>[0]),
+      };
+      return port;
     },
   };
 }

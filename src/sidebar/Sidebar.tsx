@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Favorite, Folder, PinnedTab, Space, SpaceItem } from '../library/structure';
 import { useBrowser, useMessages, useSidebarState } from './browser-context';
 import { faviconUrl } from './favicon';
+import { Settings } from './Settings';
 
 export function Sidebar() {
   const t = useMessages();
@@ -26,6 +27,7 @@ export function Sidebar() {
       <FavoritesRow favorites={view.favorites} />
       <main className="space">{activeSpace && <SpaceContents space={activeSpace} />}</main>
       <SpaceSwitcher spaces={view.spaces} activeSpaceId={activeSpace?.id} onSelect={setActiveSpaceId} />
+      <Settings />
     </div>
   );
 }
