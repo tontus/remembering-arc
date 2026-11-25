@@ -2,8 +2,10 @@ import type { BrowserPort, Tab, TabChangeInfo, TabGroup } from '../browser/port'
 import type { Library } from '../library/library';
 import type { LibraryStructure, Space } from '../library/structure';
 import { readActiveSpaceId, resolveActiveSpace, windowOfActiveSpaceKey } from '../orchestrator/active-space';
+import { type PinnedTabLinks, readPinnedTabLinks, windowOfPinnedTabLinksKey } from '../orchestrator/pinned-tab-links';
+import { hasWandered, openTabsOfPinnedTabs, pinnedTabsOf } from '../orchestrator/pinned-tabs';
 import { spaceGroup } from '../orchestrator/space-groups';
-import type { SidebarView, TodayTab } from './sidebar-protocol';
+import type { OpenPinnedTab, SidebarView, TodayTab } from './sidebar-protocol';
 
 /** The sidebar view of each window that has a sidebar open, kept up to date. */
 export interface WindowViews {
@@ -22,16 +24,45 @@ export interface WindowViews {
 /** The parts of a tab change that the view shows. */
 const SHOWN_TAB_CHANGES: (keyof TabChangeInfo)[] = ['groupId', 'pinned', 'title', 'url'];
 
-/** Combines the Library with a window's Active Space and tabs into the window's sidebar view. */
-export function windowView(structure: LibraryStructure, activeSpace: Space, tabs: Tab[], groups: TabGroup[]): SidebarView {
+/**
+ * Combines the Library with a window's Active Space, tabs and Pinned tab links into the
+ * window's sidebar view.
+ */
+export function windowView(
+  structure: LibraryStructure,
+  activeSpace: Space,
+  tabs: Tab[],
+  groups: TabGroup[],
+  links: PinnedTabLinks,
+): SidebarView {
+  const openTabs = openTabsOfPinnedTabs(activeSpace, tabs, groups, links);
+  const openPinnedTabs: Record<string, OpenPinnedTab> = {};
+  for (const pinnedTab of pinnedTabsOf(activeSpace)) {
+    const tab = openTabs.get(pinnedTab.id);
+    if (!tab) continue;
+    openPinnedTabs[pinnedTab.id] = {
+      tabId: tab.id!,
+      active: tab.active,
+      wandered: hasWandered(pinnedTab, tab),
+      title: tabTitle(tab),
+      url: tab.url ?? '',
+    };
+  }
+
+  // An open Pinned tab's tab is in the Space's group too, but it isn't a Today tab.
+  const pinnedTabIds = new Set([...openTabs.values()].map((tab) => tab.id));
   const group = spaceGroup(groups, activeSpace);
   const todayTabs: TodayTab[] = group
     ? tabs
-        .filter((tab) => tab.groupId === group.id && tab.id !== undefined)
+        .filter((tab) => tab.groupId === group.id && tab.id !== undefined && !pinnedTabIds.has(tab.id))
         .sort((a, b) => a.index - b.index)
-        .map((tab) => ({ id: tab.id!, title: tab.title || tab.url || '', url: tab.url ?? '', active: tab.active }))
+        .map((tab) => ({ id: tab.id!, title: tabTitle(tab), url: tab.url ?? '', active: tab.active }))
     : [];
-  return { ...structure, activeSpaceId: activeSpace.id, todayTabs };
+  return { ...structure, activeSpaceId: activeSpace.id, openPinnedTabs, todayTabs };
+}
+
+function tabTitle(tab: Tab): string {
+  return tab.title || tab.url || '';
 }
 
 interface Subscriber {
@@ -73,12 +104,13 @@ export function createWindowViews(browser: Pick<BrowserPort, 'tabs' | 'tabGroups
     let view: SidebarView;
     try {
       const current = structure ?? (await library.read());
-      const [tabs, groups, storedId] = await Promise.all([
+      const [tabs, groups, storedId, links] = await Promise.all([
         browser.tabs.query({ windowId }),
         browser.tabGroups.query({ windowId }),
         readActiveSpaceId(browser.storage.session, windowId),
+        readPinnedTabLinks(browser.storage.session, windowId),
       ]);
-      view = windowView(current, resolveActiveSpace(current, storedId), tabs, groups);
+      view = windowView(current, resolveActiveSpace(current, storedId), tabs, groups, links);
     } catch (error) {
       for (const subscriber of state.subscribers.keys()) subscriber.onError?.(error);
       return;
@@ -126,7 +158,7 @@ export function createWindowViews(browser: Pick<BrowserPort, 'tabs' | 'tabGroups
   tabGroups.onRemoved.addListener((group) => void refreshWindow(group.windowId));
   browser.storage.session.onChanged.addListener((changes) => {
     for (const key of Object.keys(changes)) {
-      const windowId = windowOfActiveSpaceKey(key);
+      const windowId = windowOfActiveSpaceKey(key) ?? windowOfPinnedTabLinksKey(key);
       if (windowId !== undefined) void refreshWindow(windowId);
     }
   });

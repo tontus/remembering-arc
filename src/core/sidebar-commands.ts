@@ -50,6 +50,14 @@ async function run({ library, orchestrator, windowId }: CommandContext, command:
       return void (await orchestrator.switchSpace(windowId, command.spaceId));
     case 'activateTab':
       return void (await orchestrator.activateTab(windowId, command.tabId));
+    case 'openPinnedTab':
+      return void (await orchestrator.openPinnedTab(windowId, command.pinnedTabId));
+    case 'pinTab':
+      return void (await orchestrator.pinTab(windowId, command.tabId, command.toIndex));
+    case 'unpin':
+      return void (await orchestrator.unpin(command.pinnedTabId));
+    case 'returnToPinnedUrl':
+      return void (await orchestrator.returnToPinnedUrl(windowId, command.pinnedTabId));
     default:
       throw new Error(`Unknown sidebar command: ${JSON.stringify(command satisfies never)}`);
   }

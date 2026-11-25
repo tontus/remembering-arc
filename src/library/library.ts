@@ -1,5 +1,6 @@
 import type { BookmarkNode, BrowserPort } from '../browser/port';
 import { getMessage } from '../i18n';
+import { createPinnedTab, type NewPinnedTab, unpin } from './pinned-tab-commands';
 import { DEFAULT_SPACE_COLOR, isSpaceColor, isSpaceColorKey, type SpaceColor, spaceColorKey } from './space-color';
 import {
   createSpace,
@@ -42,6 +43,13 @@ export interface Library {
   setSpaceColor(spaceId: string, color: SpaceColor): Promise<void>;
   /** Moves a Space to `toIndex` among the Spaces. */
   moveSpace(spaceId: string, toIndex: number): Promise<void>;
+  /**
+   * Adds a Pinned tab to a Space, at `toIndex` among its Pinned tabs and Folders, or after
+   * them. Returns the Pinned tab's ID.
+   */
+  createPinnedTab(spaceId: string, pinnedTab: NewPinnedTab, toIndex?: number): Promise<string>;
+  /** Removes a Pinned tab, wherever it is in its Space. */
+  unpin(pinnedTabId: string): Promise<void>;
 }
 
 interface Subscriber {
@@ -172,5 +180,8 @@ export function createLibrary(browser: Pick<BrowserPort, 'bookmarks' | 'i18n' | 
     setSpaceIcon: (spaceId, icon) => command((context) => setSpaceIcon(context, spaceId, icon)),
     setSpaceColor: (spaceId, color) => command((context) => setSpaceColor(context, spaceId, color)),
     moveSpace: (spaceId, toIndex) => command((context) => moveSpace(context, spaceId, toIndex)),
+    createPinnedTab: (spaceId, pinnedTab, toIndex) =>
+      command((context) => createPinnedTab(context, spaceId, pinnedTab, toIndex)),
+    unpin: (pinnedTabId) => command((context) => unpin(context, pinnedTabId)),
   };
 }

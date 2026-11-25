@@ -3,6 +3,8 @@ import type { Library } from '../library/library';
 import { LibraryCommandError } from '../library/space-commands';
 import type { LibraryStructure, Space } from '../library/structure';
 import { forgetActiveSpace, readActiveSpaceId, resolveActiveSpace, writeActiveSpaceId } from './active-space';
+import { forgetPinnedTabLinks, linkPinnedTab, readPinnedTabLinks, unlinkPinnedTab, unlinkTab } from './pinned-tab-links';
+import { findPinnedTab, openTabsOfPinnedTabs } from './pinned-tabs';
 import { addToSpaceGroup, isSpaceWindow, lastActiveTab, spaceGroup, whenNotDragging } from './space-groups';
 
 /**
@@ -19,6 +21,25 @@ export interface TabOrchestrator {
   switchSpace(windowId: number, spaceId: string): Promise<void>;
   /** Activates one of the window's tabs. */
   activateTab(windowId: number, tabId: number): Promise<void>;
+  /**
+   * Shows a Pinned tab of the window's Active Space: activates its open tab in the window, or
+   * opens its Pinned URL in a new tab in the Space's group if it isn't open there. Throws a
+   * `LibraryCommandError` if the Pinned tab is gone.
+   */
+  openPinnedTab(windowId: number, pinnedTabId: string): Promise<void>;
+  /**
+   * Pins one of the Active Space's Today tabs: adds a Pinned tab for its current page to the
+   * Space, at `toIndex` among its Pinned tabs and Folders or after them, and makes the tab
+   * that Pinned tab's open tab. Returns the Pinned tab's ID.
+   */
+  pinTab(windowId: number, tabId: number, toIndex?: number): Promise<string>;
+  /** Removes a Pinned tab. Its open tabs stay where they are, as Today tabs. */
+  unpin(pinnedTabId: string): Promise<void>;
+  /**
+   * Takes a Pinned tab's open tab in the window back to the Pinned URL and activates it, or
+   * opens the Pinned tab if it isn't open there.
+   */
+  returnToPinnedUrl(windowId: number, pinnedTabId: string): Promise<void>;
 }
 
 type OrchestratorBrowser = Pick<BrowserPort, 'tabs' | 'tabGroups' | 'windows' | 'storage'>;
@@ -94,6 +115,72 @@ export function startTabOrchestrator(browser: OrchestratorBrowser, library: Libr
     await whenNotDragging(() => tabs.update(tabId, { active: true }));
   }
 
+  /** The window's Active Space with its tabs, groups and Pinned tab links there. */
+  async function windowState(windowId: number, structure: LibraryStructure) {
+    if (!(await isSpaceWindow(windows, windowId))) throw new Error(`Window ${windowId} doesn't take part in Spaces.`);
+    const space = await activeSpaceOf(windowId, structure);
+    const [windowTabs, groups, links] = await Promise.all([
+      tabs.query({ windowId }),
+      tabGroups.query({ windowId }),
+      readPinnedTabLinks(session, windowId),
+    ]);
+    return { space, windowTabs, groups, openTabs: openTabsOfPinnedTabs(space, windowTabs, groups, links) };
+  }
+
+  /** A Pinned tab of the window's Active Space, and its open tab in the window, if any. */
+  async function pinnedTabInWindow(windowId: number, pinnedTabId: string) {
+    const structure = await library.read();
+    const found = findPinnedTab(structure, pinnedTabId);
+    if (!found) throw new LibraryCommandError('pinned-tab-not-found');
+    const { space, openTabs } = await windowState(windowId, structure);
+    // The sidebar shows only the Active Space's Pinned tabs, so this is a click that crossed
+    // a switch to another Space.
+    if (found.space.id !== space.id) throw new Error(`Pinned tab ${pinnedTabId} isn't in window ${windowId}'s Active Space.`);
+    return { space, pinnedTab: found.pinnedTab, openTab: openTabs.get(pinnedTabId) };
+  }
+
+  async function openPinnedTab(windowId: number, pinnedTabId: string): Promise<void> {
+    const { space, pinnedTab, openTab } = await pinnedTabInWindow(windowId, pinnedTabId);
+    if (openTab?.id !== undefined) {
+      const tabId = openTab.id;
+      await whenNotDragging(() => tabs.update(tabId, { active: true }));
+      return;
+    }
+    // Linked before it joins the group, so it's never shown as a Today tab, then grouped
+    // before it's activated, as in a switch.
+    const created = await tabs.create({ windowId, url: pinnedTab.pinnedUrl, active: false });
+    const tabId = created.id!;
+    await linkPinnedTab(session, windowId, pinnedTab.id, tabId);
+    await addToSpaceGroup(browser, windowId, space, [tabId]);
+    await whenNotDragging(() => tabs.update(tabId, { active: true }));
+  }
+
+  async function pinTab(windowId: number, tabId: number, toIndex?: number): Promise<string> {
+    const structure = await library.read();
+    const { space, windowTabs, groups, openTabs } = await windowState(windowId, structure);
+    const tab = windowTabs.find((each) => each.id === tabId);
+    if (!tab) throw new Error(`Tab ${tabId} isn't in window ${windowId}.`);
+    if (tab.groupId !== spaceGroup(groups, space)?.id) throw new Error(`Tab ${tabId} isn't in the Active Space.`);
+    if ([...openTabs.values()].some((open) => open.id === tabId)) throw new Error(`Tab ${tabId} is already a Pinned tab.`);
+    if (!tab.url) throw new Error(`Tab ${tabId} hasn't loaded a page yet.`);
+
+    const pinnedTabId = await library.createPinnedTab(space.id, { title: tab.title || tab.url, url: tab.url }, toIndex);
+    await linkPinnedTab(session, windowId, pinnedTabId, tabId);
+    return pinnedTabId;
+  }
+
+  async function unpin(pinnedTabId: string): Promise<void> {
+    await library.unpin(pinnedTabId);
+    await unlinkPinnedTab(session, pinnedTabId);
+  }
+
+  async function returnToPinnedUrl(windowId: number, pinnedTabId: string): Promise<void> {
+    const { pinnedTab, openTab } = await pinnedTabInWindow(windowId, pinnedTabId);
+    if (openTab?.id === undefined) return openPinnedTab(windowId, pinnedTabId);
+    const tabId = openTab.id;
+    await whenNotDragging(() => tabs.update(tabId, { url: pinnedTab.pinnedUrl, active: true }));
+  }
+
   /** Adds a tab that sits outside every group to its window's Active Space, as a Today tab. */
   async function adoptIfStray(tabId: number): Promise<void> {
     let tab;
@@ -121,14 +208,31 @@ export function startTabOrchestrator(browser: OrchestratorBrowser, library: Libr
     // It left its group, or it's no longer Chrome-pinned.
     if (change.groupId === TAB_GROUP_ID_NONE || change.pinned === false) adopt(tabId);
   });
+
+  // A closed tab, or one dragged to another window, is no longer a Pinned tab's open tab
+  // in its old window. In the new window it's a Today tab.
+  const unlink = (windowId: number, tabId: number) => {
+    serialized(() => unlinkTab(session, windowId, tabId)).catch((error: unknown) =>
+      console.error(`Could not unlink tab ${tabId} from its Pinned tab:`, error),
+    );
+  };
+  tabs.onRemoved.addListener((tabId, { windowId, isWindowClosing }) => {
+    if (!isWindowClosing) unlink(windowId, tabId);
+  });
+  tabs.onDetached.addListener((tabId, { oldWindowId }) => unlink(oldWindowId, tabId));
+
   windows.onRemoved.addListener((windowId) => {
-    forgetActiveSpace(session, windowId).catch((error: unknown) =>
-      console.error(`Could not forget the Active Space of window ${windowId}:`, error),
+    Promise.all([forgetActiveSpace(session, windowId), forgetPinnedTabLinks(session, windowId)]).catch(
+      (error: unknown) => console.error(`Could not forget the state of window ${windowId}:`, error),
     );
   });
 
   return {
     switchSpace: (windowId, spaceId) => serialized(() => switchSpace(windowId, spaceId)),
     activateTab: (windowId, tabId) => serialized(() => activateTab(windowId, tabId)),
+    openPinnedTab: (windowId, pinnedTabId) => serialized(() => openPinnedTab(windowId, pinnedTabId)),
+    pinTab: (windowId, tabId, toIndex) => serialized(() => pinTab(windowId, tabId, toIndex)),
+    unpin: (pinnedTabId) => serialized(() => unpin(pinnedTabId)),
+    returnToPinnedUrl: (windowId, pinnedTabId) => serialized(() => returnToPinnedUrl(windowId, pinnedTabId)),
   };
 }

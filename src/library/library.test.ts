@@ -610,3 +610,82 @@ describe('reordering Spaces', () => {
     expect(titles(browser, rootId)).toEqual(['B', 'A']);
   });
 });
+
+describe('Pinned tabs', () => {
+  const docs = { title: 'Docs', url: 'https://docs.example.com/' };
+  const board = { title: 'Board', url: 'https://board.example.com/' };
+
+  it('adds a Pinned tab to a Space at a position, or after its Pinned tabs and Folders', async () => {
+    const { browser, rootId, library, spaceId, latest } = await setUpLibrary([
+      { title: 'Work', children: [docs, { title: 'Projects', children: [] }] },
+      { title: 'Personal', children: [] },
+    ]);
+
+    const first = await library.createPinnedTab(spaceId('Work'), { title: 'Mail', url: 'https://mail.example.com/' }, 0);
+    await library.createPinnedTab(spaceId('Work'), { title: 'Board', url: 'https://board.example.com/' });
+
+    expect(browser.bookmarks.shape(rootId)).toEqual([
+      {
+        title: 'Work',
+        children: [
+          { title: 'Mail', url: 'https://mail.example.com/' },
+          docs,
+          { title: 'Projects', children: [] },
+          { title: 'Board', url: 'https://board.example.com/' },
+        ],
+      },
+      { title: 'Personal', children: [] },
+    ]);
+    await vi.waitFor(() =>
+      expect(latest()?.spaces[0]?.items[0]).toEqual({
+        kind: 'pinnedTab',
+        id: first,
+        title: 'Mail',
+        pinnedUrl: 'https://mail.example.com/',
+      }),
+    );
+  });
+
+  it('adds a Pinned tab given a position past the end after the others', async () => {
+    const { browser, rootId, library, spaceId } = await setUpLibrary([{ title: 'Work', children: [docs] }]);
+
+    await library.createPinnedTab(spaceId('Work'), board, 99);
+
+    expect(browser.bookmarks.shape(rootId)).toEqual([{ title: 'Work', children: [docs, board] }]);
+  });
+
+  it('reports a Space that’s gone when pinning to it', async () => {
+    const { browser, library, spaceId, expectRefused } = await setUpLibrary([
+      { title: 'Work', children: [] },
+      { title: 'Personal', children: [] },
+    ]);
+    const workId = spaceId('Work');
+    await browser.bookmarks.removeTree(workId);
+
+    await expectRefused(library.createPinnedTab(workId, board), { reason: 'space-not-found' });
+  });
+
+  it('unpins a Pinned tab, including one inside a Folder', async () => {
+    const { browser, rootId, library, latest } = await setUpLibrary([
+      { title: 'Work', children: [docs, { title: 'Projects', children: [board] }] },
+    ]);
+    const work = latest()!.spaces[0]!;
+    const projects = work.items[1]!;
+    if (projects.kind !== 'folder') throw new Error('Expected a Folder.');
+
+    await library.unpin(work.items[0]!.id);
+    await library.unpin(projects.items[0]!.id);
+
+    expect(browser.bookmarks.shape(rootId)).toEqual([{ title: 'Work', children: [{ title: 'Projects', children: [] }] }]);
+  });
+
+  it('turns down unpinning a Favorite or a Pinned tab that’s gone', async () => {
+    const { library, latest, expectRefused } = await setUpLibrary([mail, { title: 'Work', children: [docs] }]);
+    const favoriteId = latest()!.favorites[0]!.id;
+    const pinnedTabId = latest()!.spaces[0]!.items[0]!.id;
+    await library.unpin(pinnedTabId);
+
+    await expectRefused(library.unpin(favoriteId), { reason: 'pinned-tab-not-found' });
+    await expectRefused(library.unpin(pinnedTabId), { reason: 'pinned-tab-not-found' });
+  });
+});

@@ -151,23 +151,84 @@ ul {
   padding-inline-start: 14px;
 }
 
-.pinned-tab,
+/* The Space's Pinned tabs and Folders. A Today tab can be dropped anywhere in here. */
+.pinned {
+  min-height: 30px;
+  border-radius: 6px;
+}
+
+.pinned.drop-target {
+  outline: 2px dashed var(--space-color);
+  outline-offset: -2px;
+}
+
+/* Where a dragged Today tab would land, drawn without moving the rows. */
+.drop-before > :first-child {
+  box-shadow: inset 0 2px 0 var(--space-color);
+}
+
+.drop-after > :first-child {
+  box-shadow: inset 0 -2px 0 var(--space-color);
+}
+
+.pinned-tab {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tab-row,
 .folder-name {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   min-height: 30px;
   padding: 0 8px;
   border-radius: 6px;
 }
 
-.pinned-tab:hover,
+.tab-row {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.tab-row:hover,
 .folder-name:hover {
   background: var(--hover);
 }
 
-.pinned-tab img {
+.tab-row[aria-current] {
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+}
+
+.tab-row:focus-visible {
+  outline: 2px solid var(--group-blue);
+  outline-offset: -2px;
+}
+
+.tab-row img {
   flex: none;
+}
+
+/* A Pinned tab with no open tab here is quieter, as in Arc. */
+.pinned-tab[data-state='closed'] .tab-row {
+  color: var(--muted);
+}
+
+.pinned-tab[data-state='closed'] .tab-row img {
+  opacity: 0.6;
+}
+
+.pinned-tab[data-state='wandered'] .label {
+  font-style: italic;
 }
 
 /* Today tabs sit below the Pinned tabs, past a divider, as in Arc. */
@@ -177,15 +238,36 @@ ul {
   border-top: 1px solid var(--selected);
 }
 
-.today-tab {
+.today-tabs .dragging {
+  opacity: 0.4;
+}
+
+.drag-preview {
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 18%);
+  cursor: grabbing;
+}
+
+.tabs-error {
+  margin: 0 6px 6px;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 10;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 30px;
-  padding: 0 8px;
+  flex-direction: column;
+  min-width: 120px;
+  padding: 4px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 20%);
+}
+
+.context-menu [role='menuitem'] {
+  padding: 6px 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 4px;
   background: none;
   color: inherit;
   font: inherit;
@@ -193,22 +275,10 @@ ul {
   cursor: pointer;
 }
 
-.today-tab:hover {
-  background: var(--hover);
-}
-
-.today-tab[aria-current] {
-  background: var(--surface);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
-}
-
-.today-tab:focus-visible {
-  outline: 2px solid var(--group-blue);
-  outline-offset: -2px;
-}
-
-.today-tab img {
-  flex: none;
+.context-menu [role='menuitem']:hover,
+.context-menu [role='menuitem']:focus-visible {
+  background: var(--selected);
+  outline: none;
 }
 
 .label {

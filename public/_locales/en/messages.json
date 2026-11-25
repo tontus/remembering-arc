@@ -44,8 +44,64 @@
     "description": "Accessible label of the list of the Space's Pinned tabs and Folders."
   },
   "emptySpace": {
-    "message": "This Space has no Pinned tabs yet.",
+    "message": "No Pinned tabs yet. Drag a tab here to pin it.",
     "description": "Shown in place of the list of Pinned tabs when the Space has none."
+  },
+  "pinTab": {
+    "message": "Pin",
+    "description": "Menu item on a Today tab in the sidebar. Keeps the tab's page in the Space as a Pinned tab."
+  },
+  "unpinTab": {
+    "message": "Unpin",
+    "description": "Menu item on a Pinned tab in the sidebar. Removes it from the Space; its open tab stays open as a Today tab."
+  },
+  "returnToPinnedUrl": {
+    "message": "Back to Pinned URL",
+    "description": "Button on a Pinned tab whose tab has browsed to another page. Takes the tab back to the page that was pinned."
+  },
+  "tabPickedUp": {
+    "message": "Picked up $NAME$. Drop it among the Pinned tabs to pin it.",
+    "description": "Read out by screen readers when the user starts dragging a Today tab in the sidebar. $NAME$ is the tab's title.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "Inbox (3)"
+      }
+    }
+  },
+  "tabPinnedAnnouncement": {
+    "message": "Pinned $NAME$.",
+    "description": "Read out by screen readers when the user drops a Today tab among the Pinned tabs. $NAME$ is the tab's title.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "Inbox (3)"
+      }
+    }
+  },
+  "tabNotPinned": {
+    "message": "$NAME$ stayed a Today tab.",
+    "description": "Read out by screen readers when the user drops a Today tab they were dragging outside the Pinned tabs. $NAME$ is the tab's title.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "Inbox (3)"
+      }
+    }
+  },
+  "pinnedTabNotOpen": {
+    "message": "Not open",
+    "description": "Read out by screen readers after a Pinned tab's name when it has no open tab in this window."
+  },
+  "pinnedTabWandered": {
+    "message": "Now on $PAGE$",
+    "description": "Read out after a Pinned tab's name, and shown on hover, when its tab has browsed away from the pinned page. $PAGE$ is the page the tab shows now.",
+    "placeholders": {
+      "page": {
+        "content": "$1",
+        "example": "Inbox (3)"
+      }
+    }
   },
   "todayTabsLabel": {
     "message": "Today tabs",
@@ -141,9 +197,13 @@
     "message": "This Space no longer exists. It may have been deleted on another device.",
     "description": "Shown when the user changes a Space that was deleted in the meantime."
   },
+  "pinnedTabNotFound": {
+    "message": "This Pinned tab no longer exists. It may have been removed on another device.",
+    "description": "Shown when the user opens or unpins a Pinned tab that was removed in the meantime."
+  },
   "commandFailed": {
     "message": "The change couldn't be saved. Try again.",
-    "description": "Shown when a change to a Space fails unexpectedly."
+    "description": "Shown when a change to a Space or a Pinned tab fails unexpectedly."
   },
   "colorGrey": {
     "message": "Grey",

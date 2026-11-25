@@ -20,8 +20,26 @@ export function windowOfSidebarPort(portName: string): number | undefined {
 export interface SidebarView extends LibraryStructure {
   /** The Space this window shows. Each window has its own. */
   activeSpaceId: string;
+  /**
+   * The Active Space's Pinned tabs that are open in this window, by Pinned tab ID, at any
+   * depth in its Folders. A Pinned tab that isn't here isn't open.
+   */
+  openPinnedTabs: Record<string, OpenPinnedTab>;
   /** The Active Space's Today tabs in this window, in tab strip order. */
   todayTabs: TodayTab[];
+}
+
+/** The tab a Pinned tab is open in, in this window. */
+export interface OpenPinnedTab {
+  /** Chrome's tab ID. */
+  tabId: number;
+  /** Whether it's the window's active tab. */
+  active: boolean;
+  /** Whether the tab has browsed away from the Pinned URL. */
+  wandered: boolean;
+  /** The page the tab shows now. */
+  title: string;
+  url: string;
 }
 
 /** An open tab in the Active Space's tab group that isn't a Pinned tab or a Favorite. */
@@ -44,7 +62,18 @@ export type SidebarCommand =
   /** Makes a Space the Active Space of the sidebar's window. */
   | { type: 'switchSpace'; spaceId: string }
   /** Activates one of the window's tabs. */
-  | { type: 'activateTab'; tabId: number };
+  | { type: 'activateTab'; tabId: number }
+  /** Activates a Pinned tab's open tab in the window, or opens it in the Active Space. */
+  | { type: 'openPinnedTab'; pinnedTabId: string }
+  /**
+   * Pins a Today tab at `toIndex` among the Active Space's Pinned tabs and Folders, or after
+   * them. The tab becomes the new Pinned tab's open tab.
+   */
+  | { type: 'pinTab'; tabId: number; toIndex?: number }
+  /** Removes a Pinned tab. Its open tabs become Today tabs. */
+  | { type: 'unpin'; pinnedTabId: string }
+  /** Takes a Pinned tab's open tab back to its Pinned URL. */
+  | { type: 'returnToPinnedUrl'; pinnedTabId: string };
 
 /**
  * How a command went. A Space the command created is in `spaceId`. When it succeeds, the

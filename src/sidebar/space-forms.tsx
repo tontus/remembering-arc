@@ -39,6 +39,8 @@ export function commandErrorMessage(t: Translate, outcome: Extract<CommandOutcom
       return t('spaceIconInvalid');
     case 'space-not-found':
       return t('spaceNotFound');
+    case 'pinned-tab-not-found':
+      return t('pinnedTabNotFound');
     case 'invalid-color':
     case 'failed':
       return t('commandFailed');

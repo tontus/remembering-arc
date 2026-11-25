@@ -404,6 +404,17 @@ describe('fake tabs, windows and tab groups', () => {
     expect((await updated).slice(0, 2)).toEqual([first.id, { groupId }]);
   });
 
+  it('navigates a tab with tabs.update, reporting the new URL and title', async () => {
+    const browser = createFakeBrowser();
+    const tab = browser.tabs.open({ url: 'https://a.example/drafts', title: 'Drafts' });
+    const updated = nextCall(browser.tabs.onUpdated);
+
+    await browser.tabs.update(tab.id!, { url: 'https://a.example/' });
+
+    expect((await updated).slice(0, 2)).toEqual([tab.id, { url: 'https://a.example/', title: 'https://a.example/' }]);
+    expect(await browser.tabs.get(tab.id!)).toMatchObject({ url: 'https://a.example/', title: 'https://a.example/' });
+  });
+
   it('adds tabs from the right of a group at its end and from the left at its start', async () => {
     const browser = createFakeBrowser();
     const left = browser.tabs.open({ url: 'https://left.example/' });
