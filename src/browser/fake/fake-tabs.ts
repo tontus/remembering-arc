@@ -74,9 +74,10 @@ export class FakeTabs implements TabsPort {
     return this.strip.createTab({ windowId, url, active });
   }
 
-  async update(tabId: number, { active }: { active?: boolean }): Promise<Tab | undefined> {
+  async update(tabId: number, { active, url }: { active?: boolean; url?: string }): Promise<Tab | undefined> {
     this.strip.refuseWhileDragging();
     if (!this.strip.tab(tabId)) throw new Error(`No tab with id: ${tabId}.`);
+    if (url !== undefined) this.strip.navigate(tabId, { url });
     if (active) this.strip.activate(tabId);
     return this.strip.tab(tabId);
   }

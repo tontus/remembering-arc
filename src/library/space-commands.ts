@@ -15,9 +15,11 @@ export type LibraryErrorReason =
   /** The color isn't one of Chrome's tab group colors. */
   | 'invalid-color'
   /** The Space is gone, for example deleted on another device. */
-  | 'space-not-found';
+  | 'space-not-found'
+  /** The Pinned tab is gone, for example unpinned on another device. */
+  | 'pinned-tab-not-found';
 
-/** A command the Library turned down without writing anything. */
+/** A command the Library, or the tab orchestrator, turned down without changing anything. */
 export class LibraryCommandError extends Error {
   readonly reason: LibraryErrorReason;
   readonly spaceName: string | undefined;
@@ -116,7 +118,7 @@ function checkUnique(root: BookmarkNode, name: string, spaceId?: string): void {
   if (taken) throw new LibraryCommandError('duplicate-name', name);
 }
 
-function findSpace(root: BookmarkNode, spaceId: string): BookmarkNode {
+export function findSpace(root: BookmarkNode, spaceId: string): BookmarkNode {
   const space = root.children!.find((node) => node.id === spaceId && isFolderNode(node));
   if (!space) throw new LibraryCommandError('space-not-found');
   return space;

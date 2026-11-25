@@ -182,7 +182,10 @@ export interface Tab {
   pinned: boolean;
   /** The tab's group, or `TAB_GROUP_ID_NONE`. */
   groupId: number;
-  /** With the "tabs" permission, Chrome reports every tab's URL and title. */
+  /**
+   * With the "tabs" permission, Chrome reports every tab's URL and title. A tab still loading
+   * its first page reports an empty URL.
+   */
   url?: string;
   title?: string;
   /** When the tab last became active in its window, in milliseconds since the epoch. */
@@ -209,8 +212,11 @@ export interface TabsPort {
    * outside every tab group (ADR-0002).
    */
   create(createProperties: { windowId?: number; url?: string; active?: boolean }): Promise<Tab>;
-  /** Activating a tab inside a collapsed group expands the group (ADR-0002). */
-  update(tabId: number, updateProperties: { active?: boolean }): Promise<Tab | undefined>;
+  /**
+   * Activates a tab, navigates it to `url`, or both. Activating a tab inside a collapsed group
+   * expands the group (ADR-0002).
+   */
+  update(tabId: number, updateProperties: { active?: boolean; url?: string }): Promise<Tab | undefined>;
   /**
    * Adds tabs to a group and resolves with the group's ID. Without `groupId` it makes a new,
    * untitled group in `createProperties.windowId`, which defaults to the current window.

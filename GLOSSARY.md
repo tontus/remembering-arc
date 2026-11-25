@@ -22,6 +22,10 @@ _Avoid_: Bookmark, saved tab, Chrome-pinned tab
 The address a Pinned tab opens and returns to. Navigating inside the open tab doesn't change it.
 _Avoid_: Home URL, saved URL
 
+**Wandered**:
+Said of a Pinned tab whose open tab has browsed away from its Pinned URL. The sidebar offers a way back.
+_Avoid_: Drifted, navigated away
+
 **Folder**:
 A named group of Pinned tabs and other Folders inside a Space.
 _Avoid_: Bookmark folder, group
